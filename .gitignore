@@ -1,0 +1,10 @@
+# LaTeX output
+*.aux
+*.log
+*.pdf
+
+# Visual Studio stuff
+bin/
+obj/
+.vs/
+packages/
