@@ -8,7 +8,7 @@
     <ProjectGuid>448be640-8747-4213-9daf-1b24f255b83e</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>Toy</RootNamespace>
-    <AssemblyName>Toy</AssemblyName>
+    <AssemblyName>Eyas</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
