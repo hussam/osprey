@@ -19,13 +19,13 @@ support new features.
 For example, to build a simple caching layer that guarantees a certain response
 latency and throughput, developers need to take into account the number of
 machines available to run that service, the network connecting these machines,
-the storage hierarchy within each machine, and the expected workload that the
-caching layer will be servicing. A change in any one of these parameters, could
-render the service inefficient.
+the storage hierarchy within each machine, the expected workload that the
+caching layer will be servicing, and interference from other applications on the network and machines.
+A change in any one of these parameters could render the service inefficient.
 
 Traditionally, this complexity is addressed with custom-built systems that
 are optimized for specific configurations and objective functions. Is there a
-general, principled, approach to dealing with complexity in the design of
+general, principled approach to dealing with complexity in the design of
 distributed systems?
 In this position paper, we propose a research project to study the use of
 Machine Learning (ML) in the design of distributed systems. We highlight
@@ -73,14 +73,14 @@ problematic for ML in systems and are worth studying.
 Distributed systems are often designed in a hierarchical manner, where
 subcomponents are monitoring and managing others. These components and layers of
 indirection simplify reasoning about the system at large. However, it is not
-clear how will hierarchy affect an ML agent.
+clear how hierarchy will affect an ML agent.
 \begin{itemize}
   \item Will hierarchy aid the learning system via parallelism? Or will it hinder
     it since not all features are visible at every level?
   \item Should learning happen in each component of the system? Or should it be
     centralized?
   \item If learning is happening at multiple levels of the hierarchy, will that
-    create interference between the learners? Or will they compliment each
+    create interference between the learners? Or will they complement each
     other?
 \end{itemize}
 
