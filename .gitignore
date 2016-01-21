@@ -8,3 +8,6 @@ bin/
 obj/
 .vs/
 packages/
+
+# Vim
+*.swp
