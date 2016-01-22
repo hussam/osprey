@@ -7,9 +7,18 @@ open System.Collections.Generic
 open FSharp.Charting
 
 
+type VariablePerformanceConfig = {
+    isVariablePerf : bool
+    minMultiplierPct : int
+    maxMultiplierPct : int
+    periodFloor : int
+    periodCeiling : int
+}
+
 type Config = {
     isLocal : bool
     isServer : bool
+    isAsync : bool
     numLocalClients : int
     numLocalServers : int
     serverPort : int
@@ -19,12 +28,17 @@ type Config = {
     maxRefreshPeriod : int
     incRefreshPeriod : int
     servers : (string * int) list
+    numMessages : int
+    clientPort : int
+    randomSeed : int
+    varPerf : VariablePerformanceConfig
 }
 
 
 let defaultConfig = {
     isLocal = true
     isServer = true
+    isAsync = false
     numLocalClients = 10
     numLocalServers = 3
     serverPort = 8000
@@ -34,6 +48,10 @@ let defaultConfig = {
     maxRefreshPeriod = 30
     incRefreshPeriod = Int32.MaxValue
     servers = []
+    numMessages = 100
+    clientPort = 4000
+    randomSeed = 3000
+    varPerf = {isVariablePerf = false; minMultiplierPct = 100; maxMultiplierPct = 100; periodFloor = Int32.MaxValue; periodCeiling = Int32.MaxValue}
 }
 
 
@@ -83,6 +101,27 @@ let rec parseArgs (config, args : string list) =
         let host = addr.[0]
         let port = Int32.Parse(addr.[1])
         parseArgs ({config with servers = (host, port) :: config.servers}, tail)
+    | "--async" :: tail | "-a" :: tail ->
+        parseArgs ({config with isAsync = true}, tail)
+    | "--numMessages" :: nm :: tail | "-m" :: nm :: tail ->
+        let n = Int32.Parse(nm)
+        parseArgs ({config with numMessages = n}, tail)
+    | "--randomSeed" :: rs :: tail | "-rs" :: rs :: tail ->
+        let r = Int32.Parse(rs)
+        parseArgs ({config with randomSeed = r}, tail)
+    | "--variablePerformance" :: vp :: tail | "-vp" :: vp :: tail ->
+        match vp.Split(':') with
+        | [| minMult ; maxMult ; minPeriod ; maxPeriod |] ->
+            let v = {
+                isVariablePerf = true;
+                minMultiplierPct = Int32.Parse(minMult)
+                maxMultiplierPct = Int32.Parse(maxMult)
+                periodFloor = Int32.Parse(minPeriod)
+                periodCeiling = Int32.Parse(maxPeriod)
+            }
+            parseArgs ({config with varPerf = v}, tail)
+        | _ ->
+            parseArgs (config, tail)
     | arg :: tail ->  // unrecognized argument
         printfn "UNKOWN ARGUMENT: %s" arg
         parseArgs (config, tail)
@@ -96,7 +135,10 @@ let main args =
     printfn "Configuration = %A\n" config
     match (config.isLocal, config.isServer) with
     | true, _ -> runLocal config
-    | false, true -> Server.Start(config.serverPort)
+    | false, true ->
+        match config.isAsync with
+        | false -> Sync.Server.Start(config.serverPort, config.randomSeed, config.varPerf.isVariablePerf, config.varPerf.minMultiplierPct, config.varPerf.maxMultiplierPct, config.varPerf.periodFloor, config.varPerf.periodCeiling)
+        | true -> Async.Server.Start(config.serverPort, config.randomSeed, config.varPerf.isVariablePerf, config.varPerf.minMultiplierPct, config.varPerf.maxMultiplierPct, config.varPerf.periodFloor, config.varPerf.periodCeiling)
     | false, false ->
         let results =
             [ config.refreshPeriod .. config.incRefreshPeriod .. config.maxRefreshPeriod ]
@@ -107,8 +149,13 @@ let main args =
                     let results =
                         [| 1..config.numLocalClients |]
                         |> Array.map(fun i ->
-                                        let c = new Client(i)
-                                        c.RunAsync( List.toArray config.servers, config.minJobSize, config.maxJobSize, config.refreshPeriod ) )
+                                        match config.isAsync with
+                                        | false ->
+                                            let c = new Sync.Client(i, config.randomSeed)
+                                            async { return c.Run( List.toArray config.servers, config.minJobSize, config.maxJobSize, config.refreshPeriod, config.numMessages ) }
+                                        | true ->
+                                            let c = new Async.Client(i, config.clientPort, config.randomSeed)
+                                            async { return c.Run( List.toArray config.servers, config.minJobSize, config.maxJobSize, config.refreshPeriod, config.numMessages ) } )
                         |> Async.Parallel
                         |> Async.RunSynchronously
                         |> Array.fold (fun accIn clientResults -> Array.append accIn (clientResults.ToArray())) [||]
