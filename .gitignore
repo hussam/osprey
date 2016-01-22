@@ -9,5 +9,6 @@ obj/
 .vs/
 packages/
 
-# Vim
+# Temporary files
 *.swp
+*~
