@@ -136,14 +136,41 @@ even these tasks difficult, as described below.
 
 \subsection*{Locality}
 
-Decisions made by an ML agent in distributed system are likely to rely on input
-data collected from diverse and physically distributed components. As a result,
-the input to the learning loop might be stale or inconsistent. What could be
-done to mitigate those issues while making reasonable real-time decisions?
-Additionally, the decisions outputted by the learning agent need to be executed
-by diverse and distributed components. How could routine distributed systems
-issues such failures and delays in an asynchronous setting affect the learning
-system?
+Decisions in a distributed system often rely on contextual information that
+resides on diverse and physically disparate components. This information may not
+be readily available at the point at which the decision is made (e.g., the load
+balancer).  As a result, the context supplied to the learning system may be
+stale. What are the effects of staleness, and can the learning system cope with
+them (e.g., by relying on ''smoothness'' properties of the context)?  Can we
+leverage recent hardware or software techniques to reduce or eliminate
+staleness?
+
+Another disparity occurs between the place a decision is made (e.g., the load
+balancer) and where the resulting action is taken (e.g., the server selected to
+process a request). This means that the enforcement of the action cannot be
+guaranteed by the decision maker, and indeed it may be altered or reversed.
+Contextual learning systems are capable of tolerating downstream logic
+that alters the decision, provided certain independence assumptions
+aren't violated and rewards are reported accurately. Are there circumstances in
+which distributed systems would violate these assumptions enough to affect
+performance?
+
+\subsection*{Failures}
+
+What features of the run-time system are important to the ML agent? How can they
+be captured effectively? Can the ML agent learn from incomplete data? For
+example, if an ML agent needs to make decisions regarding performance
+optimization, would ignoring garbage collection activities or the VMM result in
+corrupting the learned model? How sensitive should the learner be?
+
+- quesiton of what features to include is there, but being conservative usually the right
+way to go
+- bigger quesiton is how ml component deals with omissions and other problems. Separate
+into failure sections? Yeah, replace this with ``failures'' and move feature selection stuff
+down to last section
+How could routine
+distributed systems issues such failures and delays in an asynchronous setting affect the
+learning system?
 
 \subsection*{Hierarchy}
 Distributed systems are often designed in a hierarchical manner, where
@@ -163,20 +190,6 @@ clear how hierarchy will affect an ML agent.
 - Should feature vectors cut across the levels or not?
 - In general should be composable if at each level can define decision and reward,
 and exploration randomization is different at each level
-
-\subsection*{Failures}
-
-What features of the run-time system are important to the ML agent? How can they
-be captured effectively? Can the ML agent learn from incomplete data? For
-example, if an ML agent needs to make decisions regarding performance
-optimization, would ignoring garbage collection activities or the VMM result in
-corrupting the learned model? How sensitive should the learner be?
-
-- quesiton of what features to include is there, but being conservative usually the right
-way to go
-- bigger quesiton is how ml component deals with omissions and other problems. Separate
-into failure sections? Yeah, replace this with ``failures'' and move feature selection stuff
-down to last section
 
 \subsection*{Randomization}
 
