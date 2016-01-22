@@ -132,7 +132,7 @@ specifics (such as policies for request routing, replica placement, or failure
 monitoring) at run-time based on observed metrics.
 }
 
-\section{Using Online Learning in Distributed Systems}
+\section{Challenges}
 
 As mentioned earlier, we adopt the framework of contextual online learning with
 partial feedback.  To separate the systems concerns we are trying to highlight
@@ -156,99 +156,111 @@ even these tasks difficult, as described below.
 
 \subsection*{Locality}
 
-Decisions made by an ML agent in distributed system are likely to rely on input
-data collected from diverse and physically distributed components. As a result,
-the input to the learning loop might be stale or inconsistent. What could be
-done to mitigate those issues while making reasonable real-time decisions?
-Additionally, the decisions outputted by the learning agent need to be executed
-by diverse and distributed components. How could routine distributed systems
-issues such as message delays in an asynchronous setting affect the learning
-system?
+Decisions in a distributed system often rely on contextual information that
+resides on diverse and physically disparate components. This information may not
+be readily available at the point at which the decision is made (e.g., the load
+balancer).  As a result, the context supplied to the learning system may be
+stale. What are the effects of staleness, and can the learning system cope with
+them (e.g., by relying on ''smoothness'' properties of the context)?  Can we
+leverage recent hardware or software techniques to reduce or eliminate
+staleness?
 
-\subsection*{Hierarchy}
-Distributed systems are often designed in a hierarchical manner, where
-subcomponents are monitoring and managing others. These components and layers of
-indirection simplify reasoning about the system at large. However, it is not
-clear how hierarchy will affect an ML agent.
-\begin{itemize}
-  \item Will hierarchy aid the learning system via parallelism? Or will it hinder
-    it since not all features are visible at every level?
-  \item Should learning happen in each component of the system? Or should it be
-    centralized?
-  \item If learning is happening at multiple levels of the hierarchy, will that
-    create interference between the learners? Or will they complement each
-    other?
-   \item Should feature vectors cut across the levels or not?
-\end{itemize}
+Another disparity occurs between the place a decision is made (e.g., the load
+balancer) and where the resulting action is taken (e.g., the server selected to
+process a request). This means that the enforcement of the action cannot be
+guaranteed by the decision maker, and indeed it may be altered or reversed.
+Contextual learning systems are capable of tolerating downstream logic
+that alters the decision, provided certain independence assumptions
+aren't violated and rewards are reported accurately. Are there circumstances in
+which distributed systems would violate these assumptions enough to affect
+performance?
 
-%% Sid:
-%% In general should be composable if at each level can define decision and reward,
-%% and exploration randomization is different at each level
+While reward information is also not available at the decision location, this is
+the norm in contextual learning settings, where reward information is only
+discernible after a delay and often by a separate subsystem. Thus, we do not
+expect this to pose a problem. (The faster reward information is collected, the
+faster the resulting data point can be used by the learning subsystem.)
 
 \subsection*{Failures}
 
-Failures are an expected occurrence in every distributed system. How do learning
+The disparity in locality above results in a lack of fate sharing between the
+distributed system components involved in a decision.  Failures in any of
+these components have implications on the inputs to the learning system. For
+example, server failures in a load balanced cluster could mean that certain
+context information is staler than others or unavailable altogether. How do we
+convey this ''lack of information'' to the learning system, and how does it
+cope with sporadically incomplete data? Should failures be encoded in the
+context somehow?
+How do learning
 systems cope with data omission or inability to execute decisions due to
 failures? Can the ML agent learn from incomplete or potentially corrupt data?
 How sensitive should the learner be to transient conditions in the system?
 
-%% What features of the run-time system are important to the ML agent? How can they
-%% be captured effectively? Can the ML agent learn from incomplete data? For
-%% example, if an ML agent needs to make decisions regarding performance
-%% optimization, would ignoring garbage collection activities or the VMM result in
-%% corrupting the learned model? How sensitive should the learner be?
-%% 
-%% - quesiton of what features to include is there, but being conservative usually the right
-%% way to go
-%% - bigger quesiton is how ml component deals with omissions and other problems. Separate
-%% into failure sections? Yeah, replace this with ``failures'' and move feature selection stuff
-%% down to last section
+\subsection*{Hierarchy}
 
-%% Hussam: Sid, I don't understand what you mean by randomization in this context
-%% So I am taking this subsection out.
-%% \subsection*{Randomization}
-%% 
-%% An ML agent can be trained offline with pre-labeled data. However, is this
-%% possible in the context of distributed systems? An online learning systems is
-%% more logical in this context, however, how do we quantify the costs of
-%% exploration vs exploitation of learned strategies?
-%% 
-%% - Probably omit this, or replace with ``Randomization''. Basically, we already know
-%% that exploratoin-exploitation is the right approach, and that will be encapsulated
-%% by the ML component (its decisions will reflect this, and it will take care of
-%% computing probabilities etc.). But there's an interesting point about inherent randomization
-%% in systems
-%% 
+Distributed systems are often designed in a hierarchical manner, where
+subcomponents monitor and manage others. These components and layers of
+indirection simplify reasoning, building, and maintaining the system at
+large. However, it is not clear how hierarchy should be handled with respect to
+optimizing decisions via contextual learning. In general contextual learning is
+composable, in that decisions of subcomponents can be used to influence
+higher-level components, downstream components can make decisions influenced by
+the decisions of upstream components, and so on.  Should the context for each
+decision be limited to the level it is at in the hierarchy, or is it better for
+contexts to span multiple (or all) levels? Should decision points roughly mimic
+the hierarchy of the system? Consider deep memory hierarchy, for example. One
+could imagine that by capturing contextual information across the entire
+hierarchy, one could decide at what level to cache a piece of data, instead of
+only deciding on the current level and relying on evictions to move between
+levels.
 
-\section{Expanding the scope}
+\subsection*{Randomization}
 
-There are two drawbacksTwo drawbacks: opacity and scope.
-
-Opacity (also, which features matter?)
-- We are also pursuing work on cracking models open to see what they are doing inside.
-There are different ways to gain insight as to what a model is doing. For example a simple
-linear model may learn a vector of weights on the supplied features. These weights can be
-studied, and indeed some techniques such as lasso are oftne used to reduce the number of features. However, these
-techniques need to be handled carefully. Just becasue a feature has 0 weight doesn't mean it
-can be removed: perhaps it is unimportant preceisely because it exists, and its removal all of
-asudden changes the weight on other features.
-
+Contextual learning uses exploration (controlled randomization) to discover
+potentially good strategies. This is the famous explore-exploit trade-off and is
+well established to be necessary for proper online optimization. Randomization
+can be encapsulated and handled by the learning system, but there are two
+situations in which it might emerge to the systems level. First, if multiple
+components are making decisions independently, it is important to ensure that
+the randomization used by each (e.g. the seed passed to the learning system)
+are independent of each other. Second, many distributed systems already use
+randomization inherently, such as randomized load balancing or randomized cache
+eviction strategies. Can this randomization be leveraged by the learning
+system to achieve its exploration goals naturally?
 
 \ignore{
-contextual multi-armed bandits. idea is to provide a context, get an action,
-and only observe reward for that action. This matches the dist systems world well. It will generate new
-policies using ML that we could not come up with by just thinking, and may not
-even be able to describe. We argue in favor of opacity and rely instead on the guarantees
-provided by the ML optimization.
+An ML agent can be trained offline with pre-labeled data. However, is this
+possible in the context of distributed systems? An online learning systems is
+more logical in this context, however, how do we quantify the costs of
+exploration vs exploitation of learned strategies?
 }
 
+\section{Drawbacks}
 
-Scope:
-The above replaces the policy behind a decision with one backed by an ML learning system.
-Indeed systems like hte DS were designed to intervene at the decision making point in a
-slim way. The above outlines the issues which tackled would result in ML based policies,
-new ones. However, once the above has been mastered, there is the question of whether ML
-can influence distributed systems design at a higher level. For example, can it suggest
-different mechanisms for achieving a goal, or perhaps a different design of the system in the first place?
+The approach we have outlined above has at least two drawbacks. One is that we
+are using machine-learned models to capture the complexity of a distributed
+systems decision. This means that the resulting optimal policy will be opaque to
+us, making it difficult to discover what contextual information matters, for
+example.  We are independently pursuing work in cracking models open to see what
+can be learned from them, but in general this is not always possible nor is it
+reliable to draw conclusion from things like learned weights. In effect, our
+position is to accept this opacity as the cost of offloading the complexity of
+making the right decision to the learning system.
+
+The second drawback is that our proposal only replaces hand-designed policies at
+existing decision points. In other words, machine learning is used as an
+alternative policy within an existing design and architecture. Can machine
+learning influence the design/architecture of the system itself? Systems like
+the Decision Service advocate the former approach, but it is conceivable that in
+the future distributed systems will be co-designed based on learning objectives.
+
+
+%% Scope:
+%% The above replaces the policy behind a decision with one backed by an ML learning system.
+%% Indeed systems like hte DS were designed to intervene at the decision making point in a
+%% slim way. The above outlines the issues which tackled would result in ML based policies,
+%% new ones. However, once the above has been mastered, there is the question of whether ML
+%% can influence distributed systems design at a higher level. For example, can it suggest
+%% different mechanisms for achieving a goal, or perhaps a different design of the system in the first place?
 
 \end{document}
