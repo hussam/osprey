@@ -2,7 +2,7 @@
 
 \title{
   It's Never Too Late To Learn\\
-  \emph{Using Online Machine-Learning in Distributed Systems}
+  \emph{Using Online Machine Learning in Distributed Systems}
 }
 \author{}
 \date{}
@@ -34,6 +34,15 @@ configuration of distributed systems does not scale well with increased
 complexity of software design, hardware architecture, deployment environment,
 and strict service-level objectives.
 To highlight this, here are some examples of where we think ML can help:
+
+- contextual multi-armed bandits. idea is to provide a context, get an action,
+and only observe reward for that action. This matches the dist systems world well. It will generate new
+policies using ML that we could not come up with by just thinking, and may not
+even be able to describe. We argue in favor of opacity and rely instead on the guarantees
+provided by the ML optimization.
+
+We describe some of hte unkowns we face and where ML can come in
+
 
 \subsection*{Known unknowns}
 Systems often make decisions without having complete knowledge of all the
@@ -71,11 +80,24 @@ specifics (such as policies for request routing, replica placement, or failure
 monitoring) at run-time based on observed metrics.
 
 
+\section{Applying Online Learning to Distributed Systems}
 
-\section{Issues of ML in Systems}
+- Framework is to threat ML as a black box. The Decision Service is an exmaple of such a system.
+The blackbox takes as input a context, teslls us an action, and then expects us to give it
+a reward. Thus it can be placed anywher a decision has to be made, such as which request
+to route to, where to place replicas, etc.. Despite the simplicity provided by the ML interface
+and we assume the rest of it is solved: it colelcts the data, optimizes a model, and delivers the model
+to us quickly (let's even assume the latency of htis loop, which can be minutes, is good enough to adapt
+to the rate of change in our environment). Now the remaining piece is to figure out what
+to enter as context, how to execut the actions, and how to determine or report rewards.
+
+We argue that there are big challenges even in doing just these things...
 
 Using online ML in distributed systems poses many issues and open questions.
 Here are some preliminary questions that we think are worth studying:
+- Questions viewed from the lens of characteristics of distributed systems
+
+[merge below above]
 
 \subsection*{Framing}
 An online ML loop, like Microsoft's Multi-World Testing Decision Service, views
@@ -101,6 +123,10 @@ clear how hierarchy will affect an ML agent.
     other?
 \end{itemize}
 
+- Should feature vectors cut across the levels or not?
+- In general should be composable if at each level can define decision and reward,
+and exploration randomization is different at each level
+
 \subsection*{Locality}
 Decisions made by an ML agent in distributed system are likely to rely on input
 data collected from diverse and physically distributed components. As a result,
@@ -118,13 +144,43 @@ example, if an ML agent needs to make decisions regarding performance
 optimization, would ignoring garbage collection activities or the VMM result in
 corrupting the learned model? How sensitive should the learner be?
 
+- quesiton of what features to include is there, but being conservative usually the right
+way to go
+- bigger quesiton is how ml component deals with omissions and other problems. Separate
+into failure sections? Yeah, replace this with ``failures'' and move feature selection stuff
+down to last section
+
 \subsection*{Training}
 An ML agent can be trained offline with pre-labeled data. However, is this
 possible in the context of distributed systems? An online learning systems is
 more logical in this context, however, how do we quantify the costs of
 exploration vs exploitation of learned strategies?
 
+- Probably omit this, or replace with ``Randomization''. Basically, we already know
+that exploratoin-exploitation is the right approach, and that will be encapsulated
+by the ML component (its decisions will reflect this, and it will take care of
+computing probabilities etc.). But there's an interesting point about inherent randomization
+in systems
+
+\section{Expanding the scope}
+
+Two drawbacks: opacity and scope.
+
+Opacity (also, which features matter?)
+- We are also pursuing work on cracking models open to see what they are doing inside.
+There are different ways to gain insight as to what a model is doing. For example a simple
+linear model may learn a vector of weights on the supplied features. These weights can be
+studied, and indeed some techniques such as lasso are oftne used to reduce the number of features. However, these
+techniques need to be handled carefully. Just becasue a feature has 0 weight doesn't mean it
+can be removed: perhaps it is unimportant preceisely because it exists, and its removal all of
+asudden changes the weight on other features.
+
+Scope:
+The above replaces the policy behind a decision with one backed by an ML learning system.
+Indeed systems like hte DS were designed to intervene at the decision making point in a
+slim way. The above outlines the issues which tackled would result in ML based policies,
+new ones. However, once the above has been mastered, there is the question of whether ML
+can influence distributed systems design at a higher level. For example, can it suggest
+different mechanisms for achieving a goal, or perhaps a different design of the system in the first place?
 
 \end{document}
-
-
