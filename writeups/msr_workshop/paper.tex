@@ -38,25 +38,29 @@ objectives.
 
 We propose to use online learning to cope with this complexity. Specifically, we
 view a {\em decision} made by a distributed system in the framework of
-contextual online learning with partial feedback. This is a natural fit for
-distributed systems where: there is plenty of context surrounding each decision,
-decisions are made online, and feedback is received only for decisions that were
-executed.  Thus, a hand-designed policy in a distributed systems can be replaced
-with policy that has been optimized by a contextual learning system. By
-supplying rich contexts to this policy, developers capture the complexity of our
-environment without having to understand it. Additionally, by optimizing the
-policy continuously, the learning system can swiftly adapt to changes in the
-environment or service.
+contextual online learning with {\em partial feedback} (where the learner only
+gets to observe the result of the action it took, rather than all possible
+actions). This is a natural fit for distributed systems where: there is plenty
+of context surrounding each decision, decisions are made online, and feedback is
+received only for decisions that were executed.  Thus, a hand-designed policy in
+a distributed systems can be replaced with policy that has been optimized by a
+contextual learning system. By supplying rich contexts to this policy,
+developers capture the complexity of our environment without having to
+understand it. Additionally, by optimizing the policy continuously, the learning
+system can swiftly adapt to changes in the environment or service.
+
+%% Hussam: I changed "full information" to "full feedback" to stay consistent
+%% with the naming above. Confirmed with Akshay that this is correct terminology
 
 Machine learning has certainly been used in the past to optimize system
 decisions. Most of this use has been restricted to either offline settings or
-expect {\em full information}, whereby a supervised learner is trained on data
+expect {\em full feedback}, whereby a supervised learner is trained on data
 that has been annotated with correct labels.
-Some systems work in an online setting with full information. An example of that
+Some systems work in an online setting with full feedback. An example of that
 is a caching layer that uses a learning system to dynamically switch between
 existing (hand-designed) cache eviction policies, by running all policies in
 parallel and measuring their performance.
-Systems that work in an online setting with partial information
+Systems that work in an online setting with partial feedback
 tend to be for news or ad recommendation, but examples from systems
 infrastructure exist. For example, caching dynamic query content [], tuning
 parameters of multicore data structures [], allocating resources to cluster
