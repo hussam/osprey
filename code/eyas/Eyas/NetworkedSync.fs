@@ -1,4 +1,4 @@
-﻿namespace ToyExample.Networked
+﻿namespace ToyExample.Networked.Sync
 
 open System
 open System.Collections.Generic
@@ -6,19 +6,30 @@ open System.Net
 open System.Net.Sockets
 open System.Threading
 
-type Agent = MailboxProcessor<int * IPEndPoint>
-
 module Server =
-    let Start(port : int) =
+    let Start(port : int, randomSeed : int, variablePerformance : bool, minMultiplierPct : int, maxMultiplierPct : int, varPeriodFloor : int, varPeriodCeiling : int) =
+        let rand = new Random(randomSeed)
+        let mutable multiplier = 100
+
+        match variablePerformance with
+        | true ->
+            async {
+                while true do
+                    let period = rand.Next(varPeriodFloor, varPeriodCeiling)
+                    multiplier <- rand.Next(minMultiplierPct, maxMultiplierPct)
+                    Thread.Sleep(period)
+            } |> Async.Start
+        | false -> ()   // do nothing
+
         // The server loop that does the actual job execution
-        let server = Agent.Start(fun inbox ->
+        let server = MailboxProcessor<int * IPEndPoint>.Start(fun inbox ->
             async {
                 use replySocket = new UdpClient()
                 let zeros = BitConverter.GetBytes(0)
                 let zlen = zeros.Length
                 while true do
-                    let! msg, replyEndpoint = inbox.Receive()
-                    Thread.Sleep(msg)
+                    let! jobSize, replyEndpoint = inbox.Receive()
+                    Thread.Sleep(jobSize * multiplier / 100)
                     replySocket.Send(zeros, zlen, replyEndpoint) |> ignore
             } )
 
@@ -37,11 +48,11 @@ module Server =
 
 
 
-type Client(id : int) =
+type Client(id : int, randomSeed) =
     // helper function to choose the first element of a triple
     let first (one, two, three) = one
 
-    member this.RunAsync(servers : (string * int) [], minJobSize, maxJobSize, monitoringPeriod : int) = async {
+    member this.Run(servers : (string * int) [], minJobSize, maxJobSize, monitoringPeriod : int, numMessages : int) =
         let mutable currIndex = 0
         let mutable secondQlen = Int32.MaxValue
         let mutable queueLengths = servers |> Array.map(fun (hostname, port) -> (0, hostname, port))    // assume all servers have empty queues when we start
@@ -68,8 +79,7 @@ type Client(id : int) =
         use cancellationSource = new CancellationTokenSource()
         Async.Start(serverMonitor, cancellationSource.Token)
 
-
-        let rand = new Random(3000)
+        let rand = new Random(randomSeed)
         let timer = new Diagnostics.Stopwatch()
         let results = new List<_>()
         // This IPEndPoint object will allow us to read incoming datagrams sent from any source
@@ -78,7 +88,7 @@ type Client(id : int) =
         use socket = new UdpClient()
 
         timer.Start()
-        for i in 1..100 do
+        for i in 1..numMessages do
             let jobSize = rand.Next(minJobSize, maxJobSize)
             let msg = BitConverter.GetBytes(jobSize)
 
@@ -98,5 +108,4 @@ type Client(id : int) =
             results.Add(endTime - sendTime - int64(jobSize))    // record the delay
         timer.Stop()
         cancellationSource.Cancel()     // stop the monitoring thread
-        return results                  // return the delays experienced
-    }
+        results                         // return the delays experienced        
