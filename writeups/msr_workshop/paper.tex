@@ -162,7 +162,7 @@ the input to the learning loop might be stale or inconsistent. What could be
 done to mitigate those issues while making reasonable real-time decisions?
 Additionally, the decisions outputted by the learning agent need to be executed
 by diverse and distributed components. How could routine distributed systems
-issues such failures and delays in an asynchronous setting affect the learning
+issues such as message delays in an asynchronous setting affect the learning
 system?
 
 \subsection*{Hierarchy}
@@ -181,35 +181,44 @@ clear how hierarchy will affect an ML agent.
    \item Should feature vectors cut across the levels or not?
 \end{itemize}
 
-- In general should be composable if at each level can define decision and reward,
-and exploration randomization is different at each level
+%% Sid:
+%% In general should be composable if at each level can define decision and reward,
+%% and exploration randomization is different at each level
 
 \subsection*{Failures}
 
-What features of the run-time system are important to the ML agent? How can they
-be captured effectively? Can the ML agent learn from incomplete data? For
-example, if an ML agent needs to make decisions regarding performance
-optimization, would ignoring garbage collection activities or the VMM result in
-corrupting the learned model? How sensitive should the learner be?
+Failures are an expected occurrence in every distributed system. How do learning
+systems cope with data omission or inability to execute decisions due to
+failures? Can the ML agent learn from incomplete or potentially corrupt data?
+How sensitive should the learner be to transient conditions in the system?
 
-- quesiton of what features to include is there, but being conservative usually the right
-way to go
-- bigger quesiton is how ml component deals with omissions and other problems. Separate
-into failure sections? Yeah, replace this with ``failures'' and move feature selection stuff
-down to last section
+%% What features of the run-time system are important to the ML agent? How can they
+%% be captured effectively? Can the ML agent learn from incomplete data? For
+%% example, if an ML agent needs to make decisions regarding performance
+%% optimization, would ignoring garbage collection activities or the VMM result in
+%% corrupting the learned model? How sensitive should the learner be?
+%% 
+%% - quesiton of what features to include is there, but being conservative usually the right
+%% way to go
+%% - bigger quesiton is how ml component deals with omissions and other problems. Separate
+%% into failure sections? Yeah, replace this with ``failures'' and move feature selection stuff
+%% down to last section
 
-\subsection*{Randomization}
-
-An ML agent can be trained offline with pre-labeled data. However, is this
-possible in the context of distributed systems? An online learning systems is
-more logical in this context, however, how do we quantify the costs of
-exploration vs exploitation of learned strategies?
-
-- Probably omit this, or replace with ``Randomization''. Basically, we already know
-that exploratoin-exploitation is the right approach, and that will be encapsulated
-by the ML component (its decisions will reflect this, and it will take care of
-computing probabilities etc.). But there's an interesting point about inherent randomization
-in systems
+%% Hussam: Sid, I don't understand what you mean by randomization in this context
+%% So I am taking this subsection out.
+%% \subsection*{Randomization}
+%% 
+%% An ML agent can be trained offline with pre-labeled data. However, is this
+%% possible in the context of distributed systems? An online learning systems is
+%% more logical in this context, however, how do we quantify the costs of
+%% exploration vs exploitation of learned strategies?
+%% 
+%% - Probably omit this, or replace with ``Randomization''. Basically, we already know
+%% that exploratoin-exploitation is the right approach, and that will be encapsulated
+%% by the ML component (its decisions will reflect this, and it will take care of
+%% computing probabilities etc.). But there's an interesting point about inherent randomization
+%% in systems
+%% 
 
 \section{Expanding the scope}
 
