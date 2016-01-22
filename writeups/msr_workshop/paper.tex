@@ -113,7 +113,7 @@ specifics (such as policies for request routing, replica placement, or failure
 monitoring) at run-time based on observed metrics.
 }
 
-\section{Using Online Learning in Distributed Systems}
+\section{Challenges}
 
 As mentioned earlier, we adopt the framework of contextual online learning
 with partial feedback.  To separate the systems concerns we are trying to
@@ -233,13 +233,27 @@ more logical in this context, however, how do we quantify the costs of
 exploration vs exploitation of learned strategies?
 }
 
+\section{Drawbacks}
+
+The approach we have outlined above has at least two drawbacks. One is that we
+are using machine-learned models to capture the complexity of a distributed
+systems decision. This means that the resulting optimal policy will be opaque to
+us, making it difficult to discover what contextual information matters, for
+example.  We are independently pursuing work in cracking models open to see what
+can be learned from them, but in general this is not always possible nor is it
+reliable to draw conclusion from things like learned weights. In effect, our
+position is to accept this opacity as the cost of offloading the complexity of
+making the right decision to the learning system.
+
+The second drawback is that our proposal only replaces hand-designed policies at
+existing decision points. In other words, machine learning is used as an
+alternative policy within an existing design and architecture. Can machine
+learning influence the design/architecture of the system itself? Systems like
+the Decision Service advocate the former approach, but it is conceivable that in
+the future distributed systems will be co-designed based on learning objectives.
+
 \ignore{
-\section{Expanding the scope}
-
-There are two drawbacksTwo drawbacks: opacity and scope.
-
-Opacity (also, which features matter?)
-- We are also pursuing work on cracking models open to see what they are doing inside.
+We are also pursuing work on cracking models open to see what they are doing inside.
 There are different ways to gain insight as to what a model is doing. For example a simple
 linear model may learn a vector of weights on the supplied features. These weights can be
 studied, and indeed some techniques such as lasso are oftne used to reduce the number of features. However, these
