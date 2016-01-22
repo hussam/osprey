@@ -2,7 +2,7 @@
 
 \title{
   It's Never Too Late To Learn\\
-  \emph{A case for ML in distributed systems}
+  \emph{Using Online Machine-Learning in Distributed Systems}
 }
 \author{}
 \date{}
@@ -20,22 +20,22 @@ For example, to build a simple caching layer that guarantees a certain response
 latency and throughput, developers need to take into account the number of
 machines available to run that service, the network connecting these machines,
 the storage hierarchy within each machine, the expected workload that the
-caching layer will be servicing, and interference from other applications on the network and machines.
-A change in any one of these parameters could render the service inefficient.
+caching layer will be servicing, and interference from other applications on the
+network and machines.  A change in any one of these parameters could render the
+service wildly inefficient.
 
-Traditionally, this complexity is addressed with custom-built systems that
-are optimized for specific configurations and objective functions. Is there a
-general, principled approach to dealing with complexity in the design of
-distributed systems?
-In this position paper, we propose a research project to study the use of
-Machine Learning (ML) in the design of distributed systems. We highlight
-specific examples of where ML can help, and discuss potential issues that need
-to be addressed.
+Traditionally, this complexity is addressed by using highly-skilled developers
+to build custom systems that are optimized for specific configurations and
+objective functions.  Is there a general, principled approach to dealing with
+complexity in distributed systems?
+In this position paper, we propose a research project to study the use of Online
+Machine Learning (ML) in distributed systems.  Hand-tuning the design and
+configuration of distributed systems does not scale well with increased
+complexity of software design, hardware architecture, deployment environment,
+and strict service-level objectives.
+To highlight this, here are some examples of where we think ML can help:
 
-
-\section{Examples}
-
-\subsection{Known unknowns}
+\subsection*{Known unknowns}
 Systems often make decisions without having complete knowledge of all the
 factors that affect, or could be affected by, these decisions.  For example, a
 caching system evicts items based on what it thinks future requests will look
@@ -45,14 +45,14 @@ incomplete knowledge is due to the absence of data-computation locality. For
 example, a load balancer makes decisions based on what it thinks is the current
 load on other machines rather than what it actually is.
 
-In both of these situations, assumptions are made about the unknowns in
-\emph{design-time}--resulting in different different routing and caching
+In both of these situations, assumptions are made about the unknowns offline in
+\emph{design-time}--resulting in different routing and caching
 algorithms. A change to the \emph{run-time} environment could render these
 decisions wildly inefficient. By deferring to an ML agent, these decisions can
 be made online, and can be nimble in adapting to any changes to the run-time
 environment.
 
-\subsection{Unknown unknowns}
+\subsection*{Unknown unknowns}
 In some situations, system designers have no way of knowing deployment details
 that would impact the system's performance. For example, a system could be built
 for external deployment and used by third party customers, or it could be
@@ -63,13 +63,30 @@ In these cases, it is near impossible for developers to account for all the
 unknown variables in design-time. However, an ML agent is able to make decisions
 online based on inputs from the run-time environment.
 
+To be clear, ML has been used in some distributed systems. However, it has not
+been used in a general way to make online decisions about core distributed
+systems implementation details. We advocate that developers should focus on
+high-level objectives of their system, and use online ML to make to compute the
+specifics (such as policies for request routing, replica placement, or failure
+monitoring) at run-time based on observed metrics.
+
+
 
 \section{Issues of ML in Systems}
 
-In this section, we list preliminary issues and open questions that might be
-problematic for ML in systems and are worth studying.
+Using online ML in distributed systems poses many issues and open questions.
+Here are some preliminary questions that we think are worth studying:
 
-\subsection{Hierarchy}
+\subsection*{Framing}
+An online ML loop, like Microsoft's Multi-World Testing Decision Service, views
+the external world in terms of \emph{context} (a summarization of the world's
+history), \emph{actions} suggested by the agent, and \emph{rewards} collected on
+these actions. How can a distributed system's current state and service-level
+objectives be translated into context and rewards? In some scenarios, such as
+request routing for load balancing, the translation is easy. In others, like
+replica placement, the translation is hard.
+
+\subsection*{Hierarchy}
 Distributed systems are often designed in a hierarchical manner, where
 subcomponents are monitoring and managing others. These components and layers of
 indirection simplify reasoning about the system at large. However, it is not
@@ -84,24 +101,28 @@ clear how hierarchy will affect an ML agent.
     other?
 \end{itemize}
 
-\subsection{Decisions vs enforcement}
-Decisions made by an ML agent might be executed by different components and
-machines. How can the decisions be executed consistently, and reward signals
-tracked correctly at large scale?
+\subsection*{Locality}
+Decisions made by an ML agent in distributed system are likely to rely on input
+data collected from diverse and physically distributed components. As a result,
+the input to the learning loop might be stale or inconsistent. What could be
+done to mitigate those issues while making reasonable real-time decisions?
+Additionally, the decisions outputted by the learning agent need to be executed
+by diverse and distributed components. How could routine distributed systems
+issues such failures and delays in an asynchronous setting affect the learning
+system?
 
-\subsection{Feature selection}
+\subsection*{Feature selection}
 What features of the run-time system are important to the ML agent? How can they
 be captured effectively? Can the ML agent learn from incomplete data? For
 example, if an ML agent needs to make decisions regarding performance
 optimization, would ignoring garbage collection activities or the VMM result in
 corrupting the learned model? How sensitive should the learner be?
 
-\subsection{Online vs offline}
-An offline ML agent is trained with pre-labeled data. However, is this possible
-in the context of distributed systems? An online learning systems is perhaps
-more logical in this context, however, how should the reward signals be set up?
-How do we quantify the costs of exploration vs exploitation of learned
-strategies?
+\subsection*{Training}
+An ML agent can be trained offline with pre-labeled data. However, is this
+possible in the context of distributed systems? An online learning systems is
+more logical in this context, however, how do we quantify the costs of
+exploration vs exploitation of learned strategies?
 
 
 \end{document}
