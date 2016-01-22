@@ -155,28 +155,52 @@ aren't violated and rewards are reported accurately. Are there circumstances in
 which distributed systems would violate these assumptions enough to affect
 performance?
 
+While reward information is also not available at the decision location, this is
+the norm in contextual learning settings, where reward information is only
+discernible after a delay and often by a separate subsystem. Thus, we do not
+expect this to pose a problem. (The faster reward information is collected, the
+faster the resulting datapoint can be used by the learning subsystem.)
+
 \subsection*{Failures}
 
-What features of the run-time system are important to the ML agent? How can they
-be captured effectively? Can the ML agent learn from incomplete data? For
-example, if an ML agent needs to make decisions regarding performance
-optimization, would ignoring garbage collection activities or the VMM result in
-corrupting the learned model? How sensitive should the learner be?
+The disparity in locality above results in a lack of fate sharing between the
+distributed system components involved in a decision.  Failures in any of
+htese components have implications on the inputs to the learning system. For
+example, server failures in a load balanced cluster could mean that certain
+context information is staler than others or unavailable altogether. How do we
+convey this ''lack of information'' to the learning system, and how does it
+cope with sporadically incomplete data? Should failures be encoded in the
+context somehow?
 
-- quesiton of what features to include is there, but being conservative usually the right
-way to go
-- bigger quesiton is how ml component deals with omissions and other problems. Separate
-into failure sections? Yeah, replace this with ``failures'' and move feature selection stuff
-down to last section
-How could routine
-distributed systems issues such failures and delays in an asynchronous setting affect the
-learning system?
+Failures in distributed systems are hard to distinguish from asynchrony in some
+cases. What other ways does asynchrony affect the learning system?
+
+There is another failure mode in which important contextual information is
+simply not captured due to designer ommision. In general contextual learning
+algorithms scale very well with the size of the size of the context, so it is
+generally a good idea to include more data than necessary. In some cases,
+however, it may not be easy to access this data, e.g. obtaining statistics
+about a background garbage collection process or about a VMM.
 
 \subsection*{Hierarchy}
+
 Distributed systems are often designed in a hierarchical manner, where
-subcomponents are monitoring and managing others. These components and layers of
-indirection simplify reasoning about the system at large. However, it is not
-clear how hierarchy will affect an ML agent.
+subcomponents monitor and manage others. These components and layers of
+indirection simplify reasoning, building, and maintaining the system at
+large. However, it is not clear how hierarchy should be handled with respect to
+optimizing decisions via contextual learning. In general contextual learning is
+composable, in that decisions of subcomponents can be used to influence
+higher-level components, downstream components can make decisions influenced by
+the decisions of upstream components, and so on.  Should the context for each
+decision be limited to the level it is at in the hierarchy, or is it better for
+contexts to span multiple (or all) levels? Should decision points roughly mimic
+the hierarchy of the system? Consider deep memory hierarchy, for example. One
+could imagine that by capturing contextual information across the entire
+hierarchy, one could decide at what level to cache a piece of data, instead of
+only deciding on the current level and relying on evictions to move between
+levels.
+
+\ignore{
 \begin{itemize}
   \item Will hierarchy aid the learning system via parallelism? Or will it hinder
     it since not all features are visible at every level?
@@ -186,24 +210,30 @@ clear how hierarchy will affect an ML agent.
     create interference between the learners? Or will they complement each
     other?
 \end{itemize}
-
-- Should feature vectors cut across the levels or not?
-- In general should be composable if at each level can define decision and reward,
-and exploration randomization is different at each level
+}
 
 \subsection*{Randomization}
 
+Contextual learning uses exploration (controlled randomization) to discover
+potentially good strategies. This is the famous explore-exploit tradeoff and is
+well established to be necessary for proper online optimization. Randomization
+can be encapsulated and handled by the learning system, but there are two
+situations in which it might emerge to the systems level. First, if multiple
+components are making decisions independently, it is important to ensure that
+thre randomization used by each (e.g. the seed passed to the learning system)
+are independent of each other. Second, many distributed systems already use
+randomization inherently, such as randomized load balancing or randomized cache
+eviction strategies. Can this randomization be leveraged by the learning
+system to achieve its exploration goals naturally?
+
+\ignore{
 An ML agent can be trained offline with pre-labeled data. However, is this
 possible in the context of distributed systems? An online learning systems is
 more logical in this context, however, how do we quantify the costs of
 exploration vs exploitation of learned strategies?
+}
 
-- Probably omit this, or replace with ``Randomization''. Basically, we already know
-that exploratoin-exploitation is the right approach, and that will be encapsulated
-by the ML component (its decisions will reflect this, and it will take care of
-computing probabilities etc.). But there's an interesting point about inherent randomization
-in systems
-
+\ignore{
 \section{Expanding the scope}
 
 There are two drawbacksTwo drawbacks: opacity and scope.
@@ -216,7 +246,7 @@ studied, and indeed some techniques such as lasso are oftne used to reduce the n
 techniques need to be handled carefully. Just becasue a feature has 0 weight doesn't mean it
 can be removed: perhaps it is unimportant preceisely because it exists, and its removal all of
 asudden changes the weight on other features.
-
+}
 
 \ignore{
 contextual multi-armed bandits. idea is to provide a context, get an action,
