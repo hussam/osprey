@@ -63,8 +63,8 @@ and others. What is it about distributed systems that makes it difficult to appl
 at standard decision points? This proposal identifies fundamental challenges posed by distributed
 systems that must be analyzed and addressed in order to make online learning a standard tool for
 cloud optimization.  These challenges hold even if we assume that the online learning system is
-a black-box that delivers optimal decisions in real-time--in other words, they are fundamental
-to the way we design distributed systems.  We begin by highlighting some of the unknown factors
+a black-box that delivers optimal decisions with zero latency--in other words,
+they are fundamental to the way we design distributed systems.  We begin by highlighting some of the unknown factors
 that contribute to these challenges, and then list the challenges themselves.
 
 \subsection*{Known unknowns}
@@ -81,21 +81,27 @@ In both of these situations, assumptions are made about the unknowns offline dur
 \emph{design time}, resulting in different routing and caching algorithms. A change to
 the \emph{run-time} environment could easily render these choices suboptimal.
 
-\ignore{Online learning has the potential to make these decisions online, based on current contexts,
+\ignore{
+Online learning has the potential to make these decisions online, based on current contexts,
 and can be nimble in adapting to any changes to the run-time
-environment.}
+environment.
+}
 
 \subsection*{Unknown unknowns}
+
 In some situations, system designers have no way of knowing deployment details
-that would impact the system's performance. For example, a system could be built
-for external deployment and used by third party customers, or it could be
-deployed in a multi-tenant environment where co-located services could impact
-its performance.
+that might impact a system's performance. For example, a system could be
+built for external deployment and used by third-party customers, or it could be
+deployed in a multi-tenant environment where co-located services could
+affect its performance in unexpected ways. 
 
-In these cases, it is near impossible for developers to account for all the
-unknown variables in design-time. However, an ML agent is able to make decisions
-online based on inputs from the run-time environment.
+In these cases, it is nearly impossible for developers to account for all 
+unknown variables at design time. 
 
+\ignore{
+However, an ML agent is able to make
+decisions online based on inputs from the run-time environment.
+}
 \ignore{
 To be clear, ML has been used in some distributed systems. However, it has not
 been used in a general way to make online decisions about core distributed
@@ -105,35 +111,29 @@ specifics (such as policies for request routing, replica placement, or failure
 monitoring) at run-time based on observed metrics.
 }
 
-\section{Applying Online Learning to Distributed Systems}
+\section{Using Online Learning in Distributed Systems}
 
-- Framework is to threat ML as a black box. The Decision Service is an exmaple of such a system.
-The blackbox takes as input a context, teslls us an action, and then expects us to give it
-a reward. Thus it can be placed anywher a decision has to be made, such as which request
-to route to, where to place replicas, etc.. Despite the simplicity provided by the ML interface
-and we assume the rest of it is solved: it colelcts the data, optimizes a model, and delivers the model
-to us quickly (let's even assume the latency of htis loop, which can be minutes, is good enough to adapt
-to the rate of change in our environment). Now the remaining piece is to figure out what
-to enter as context, how to execut the actions, and how to determine or report rewards.
+As mentioned earlier, we adopt the framework of contextual online learning
+with partial feedback.  To separate the systems concerns we are trying to
+highlight from machine learning concerns, we abstract the learning system as a
+black-box and assume it provides optimal decisions with zero latency. For a
+given decision over a discrete action space, the interface to the learning
+system is as follows: given a {\em context} that summarizes the state of the
+world, the learning system chooses an {\em action} to take, which our system
+does and later reports a {\em reward} indicating how good the action was. An
+example of a learning system that supports this interface is the Decision
+Service~\footnote{http://aka.ms/mwt}. An example of a distributed systems
+decision is routing requests at a load balancer: the context could be load
+information of each machine in the cluster, the action could be one of the
+possible machines, and the reward could be the latency of processin the request.
 
-We argue that there are big challenges even in doing just these things...
-
-Using online ML in distributed systems poses many issues and open questions.
-Here are some preliminary questions that we think are worth studying:
-- Questions viewed from the lens of characteristics of distributed systems
-
-[merge below above]
-
-\subsection*{Framing}
-An online ML loop, like Microsoft's Multi-World Testing Decision Service, views
-the external world in terms of \emph{context} (a summarization of the world's
-history), \emph{actions} suggested by the agent, and \emph{rewards} collected on
-these actions. How can a distributed system's current state and service-level
-objectives be translated into context and rewards? In some scenarios, such as
-request routing for load balancing, the translation is easy. In others, like
-replica placement, the translation is hard.
+Thus we have reduced our concerns to generating an appropriate context,
+executing an action (told to us by the learnin system), and reporting reward
+information.  We believe that fundamental properties of distributed systems make
+even these tasks difficult, as described below.
 
 \subsection*{Locality}
+
 Decisions made by an ML agent in distributed system are likely to rely on input
 data collected from diverse and physically distributed components. As a result,
 the input to the learning loop might be stale or inconsistent. What could be
@@ -142,7 +142,6 @@ Additionally, the decisions outputted by the learning agent need to be executed
 by diverse and distributed components. How could routine distributed systems
 issues such failures and delays in an asynchronous setting affect the learning
 system?
-
 
 \subsection*{Hierarchy}
 Distributed systems are often designed in a hierarchical manner, where
@@ -163,8 +162,8 @@ clear how hierarchy will affect an ML agent.
 - In general should be composable if at each level can define decision and reward,
 and exploration randomization is different at each level
 
+\subsection*{Failures}
 
-\subsection*{Feature selection}
 What features of the run-time system are important to the ML agent? How can they
 be captured effectively? Can the ML agent learn from incomplete data? For
 example, if an ML agent needs to make decisions regarding performance
@@ -177,7 +176,8 @@ way to go
 into failure sections? Yeah, replace this with ``failures'' and move feature selection stuff
 down to last section
 
-\subsection*{Training}
+\subsection*{Randomization}
+
 An ML agent can be trained offline with pre-labeled data. However, is this
 possible in the context of distributed systems? An online learning systems is
 more logical in this context, however, how do we quantify the costs of
@@ -191,7 +191,7 @@ in systems
 
 \section{Expanding the scope}
 
-Two drawbacks: opacity and scope.
+There are two drawbacksTwo drawbacks: opacity and scope.
 
 Opacity (also, which features matter?)
 - We are also pursuing work on cracking models open to see what they are doing inside.
