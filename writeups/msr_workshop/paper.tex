@@ -21,67 +21,84 @@ is hard. Complexity is introduced by the deployment environment and exacerbated
 as the service evolves with time to accommodate hardware/environment changes or
 support new features.
 For example, to build a simple caching layer that guarantees a certain hit rate,
-response latency, and throughput, developers need to take into account the expected
-workload hitting the cache, the number of machines available to run it, the network
-connecting these machines, the storage hierarchy within each machine, and interference
-from other applications running on the network and machines.  A change in any one
-of these factors could render the service inefficient.
+response latency, and throughput, developers need to take into account the
+expected workload accessing the cache, the number of machines available to run
+it, the network connecting these machines, the storage hierarchy within each
+machine, and interference from other applications running on the network and
+machines.  A change in any one of these factors could render the service
+woefully inefficient.
 
 Traditionally, this complexity is addressed by using highly-skilled developers
 to build custom systems that are optimized for specific configurations and
-objective functions.  Is there a general, principled approach for dealing with
-complexity in distributed systems? Hand-tuning the design and configuration of a system
-does not scale well with increased complexity and changes in software design, hardware
-architecture, deployment environment, and service-level objectives.
+objective functions.  Is there a general, principled, approach for dealing with
+complexity in distributed systems? Hand-tuning the design and configuration of a
+system does not scale well with increased complexity or changes in software
+design, hardware architecture, deployment environment, and service-level
+objectives.
 
 We propose to use online learning to cope with this complexity. Specifically, we
 view a {\em decision} made by a distributed system in the framework of
-contextual online learning with partial feedback. This is a natural fit: we typically
-have plenty of context surrounding a decision (which we may not know how to use), the decision
-is made online, and we only receive feedback for the decision that was made. Thus, we can
-replace a hand-designed policy with a new policy that has been optimized by a contextual
-learning system. By supplying rich contexts to this policy, we can capture the complexity of
-our environment without having to understand it; by optimizing the policy continuously, we can
-can adapt to changes in the environment or service over time.
+contextual online learning with partial feedback. This is a natural fit for
+distributed systems where: there is plenty of context surrounding each decision,
+decisions are made online, and feedback is received only for decisions that were
+executed.  Thus, a hand-designed policy in a distributed systems can be replaced
+with policy that has been optimized by a contextual learning system. By
+supplying rich contexts to this policy, developers capture the complexity of our
+environment without having to understand it. Additionally, by optimizing the
+policy continuously, the learning system can swiftly adapt to changes in the
+environment or service.
 
-Machine learning has certainly been used in the past to optimize system decisions. Most
-of this use has been restricted to offline settings with full information: for example,
-supervised learning is often used to train models on data that has been annotated with
-correct labels. Some systems work in an online setting with full information: for example,
-a cache that applies an experts learning framework to dynamically switch between existing
-(hand-designed) cache eviction policies, by running all policies in parallel and measuring
-their performance. Systems that work in an online setting with partial information tend to
-be for news or ad recommendation, but examples from systems infrastructure exist: for example,
-caching dynamic query content [], tuning parameters of multicore data structures [], allocating
-resources to cluster computing tasks [], and allocating servers to web applications [].
-In all of these systems, the context used to make a decision, and the
-decision itself, are {\em local} to a machine. This is achieved by either devising a decentralized
-algorithm in the first place, or giving up on global optimality. Thus we are not aware of any
-system that makes ``global'' decisions based on truly distributed architecture or state.
+Machine learning has certainly been used in the past to optimize system
+decisions. Most of this use has been restricted to either offline settings or
+expect {\em full information}, whereby a supervised learner is trained on data
+that has been annotated with correct labels.
+Some systems work in an online setting with full information. An example of that
+is a caching layer that uses a learning system to dynamically switch between
+existing (hand-designed) cache eviction policies, by running all policies in
+parallel and measuring their performance.
+Systems that work in an online setting with partial information
+tend to be for news or ad recommendation, but examples from systems
+infrastructure exist. For example, caching dynamic query content [], tuning
+parameters of multicore data structures [], allocating resources to cluster
+computing tasks [], and allocating servers to web applications [].  In all of
+these systems, the context used to make a decision, and the decision itself, are
+{\em local} to a machine. This is achieved by either devising a decentralized
+algorithm in the first place, or giving up on global optimality. We are not
+aware of any system that makes ``global'' decisions based on truly distributed
+architecture or state.
 
-And yet we use hand-designed policies to make these decisions all the time, such as for request
-routing, replica placement, replica selection, cloud resource allocation, failure recovery tasks, 
-and others. What is it about distributed systems that makes it difficult to apply online learning
-at standard decision points? This proposal identifies fundamental challenges posed by distributed
-systems that must be analyzed and addressed in order to make online learning a standard tool for
-cloud optimization.  These challenges hold even if we assume that the online learning system is
-a black-box that delivers optimal decisions with zero latency--in other words,
-they are fundamental to the way we design distributed systems.  We begin by highlighting some of the unknown factors
-that contribute to these challenges, and then list the challenges themselves.
+%% Hussam: I don't know what is this "and yet" referencing. So I am taking it out.
+%%
+%%And yet we use hand-designed policies to make these decisions all the time, such
+%%as for request routing, replica placement, replica selection, cloud resource
+%%allocation, failure recovery tasks, and others.
+
+What is it about distributed systems that makes it difficult to apply online
+learning at decision points such as request routing, replica placement, cloud
+resource allocation, and failure recovery? This proposal identifies fundamental
+challenges posed by distributed systems that must be analyzed and addressed in
+order to make online learning a standard tool for distributed infrastructure
+systems.  These challenges hold even if we assume that the online learning
+system is a black-box that delivers optimal decisions with zero latency. In
+other words, they are fundamental to the way we design distributed systems.  We
+begin by highlighting some of the factors that contribute to these challenges,
+and then list the challenges themselves.
 
 \subsection*{Known unknowns}
 
-Systems often make decisions without complete knowledge of the factors that affect,
-or could affect, those decisions.  For example, a caching system evicts items based
-on what it believes future requests will look like, without actually knowing the future.
-In other cases, incomplete knowledge is due to the absence of data-computation locality.
-For example, a load balancer makes decisions based on what it thinks the current load on
-machines is, e.g. based on data it collected recently, rather than the actual load at that
-very instant in time.
+Systems often make decisions without complete knowledge of the factors that
+affect, or could affect, those decisions.  For example, a caching system evicts
+items based on what it believes future requests will look like, without actually
+knowing the future.  In other cases, incomplete knowledge is due to the absence
+of data-computation locality.  For example, a load balancer makes decisions
+based on what it thinks is the current load on other machines, e.g. based on
+data it collected recently, rather than the actual load at that very instant in
+time.
 
-In both of these situations, assumptions are made about the unknowns offline during
-\emph{design time}, resulting in different routing and caching algorithms. A change to
-the \emph{run-time} environment could easily render these choices suboptimal.
+In both of these situations, assumptions are made about the unknowns offline
+during \emph{design time}, resulting in different request routing and caching
+algorithms. A change to the \emph{run-time} environment could easily render
+these choices suboptimal.
 
 \ignore{
 Online learning has the potential to make these decisions online, based on current contexts,
@@ -92,13 +109,11 @@ environment.
 \subsection*{Unknown unknowns}
 
 In some situations, system designers have no way of knowing deployment details
-that might impact a system's performance. For example, a system could be
-built for external deployment and used by third-party customers, or it could be
-deployed in a multi-tenant environment where co-located services could
-affect its performance in unexpected ways. 
-
-In these cases, it is nearly impossible for developers to account for all 
-unknown variables at design time. 
+that might impact a system's performance. For example, a system could be built
+for external deployment and used by third-party customers, or it could be
+deployed in a multi-tenant environment where co-located services could affect
+its performance in unexpected ways. In these cases, it is nearly impossible for
+developers to account for all unknown variables at design time.
 
 \ignore{
 However, an ML agent is able to make
@@ -115,22 +130,23 @@ monitoring) at run-time based on observed metrics.
 
 \section{Using Online Learning in Distributed Systems}
 
-As mentioned earlier, we adopt the framework of contextual online learning
-with partial feedback.  To separate the systems concerns we are trying to
-highlight from machine learning concerns, we abstract the learning system as a
-black-box and assume it provides optimal decisions with zero latency. For a
-given decision over a discrete action space, the interface to the learning
-system is as follows: given a {\em context} that summarizes the state of the
-world, the learning system chooses an {\em action} to take, which our system
-does and later reports a {\em reward} indicating how good the action was. An
-example of a learning system that supports this interface is the Decision
-Service~\footnote{http://aka.ms/mwt}. An example of a distributed systems
-decision is routing requests at a load balancer: the context could be load
-information of each machine in the cluster, the action could be one of the
-possible machines, and the reward could be the latency of processin the request.
+As mentioned earlier, we adopt the framework of contextual online learning with
+partial feedback.  To separate the systems concerns we are trying to highlight
+from machine learning concerns, we abstract the learning system as a black-box
+and assume it provides optimal decisions with zero latency. For a given decision
+over a discrete action space, the interface to the learning system is as
+follows: given a {\em context} that summarizes the state of the world, the
+learning system chooses an {\em action} to take, which our system does and later
+reports a {\em reward} indicating how good the action was. An example of a
+learning system that supports this interface is the Decision
+Service~\footnote{http://aka.ms/mwt}. Now consider a load balancer using that
+learning system to make its request-routing decisions. The context for each
+decision could be load information of each machine in the cluster, the action
+could be a specific machine to route the request to, and the reward could be the
+latency of processing the request.
 
 Thus we have reduced our concerns to generating an appropriate context,
-executing an action (told to us by the learnin system), and reporting reward
+executing an action (told to us by the learning system), and reporting reward
 information.  We believe that fundamental properties of distributed systems make
 even these tasks difficult, as described below.
 
@@ -158,9 +174,9 @@ clear how hierarchy will affect an ML agent.
   \item If learning is happening at multiple levels of the hierarchy, will that
     create interference between the learners? Or will they complement each
     other?
+   \item Should feature vectors cut across the levels or not?
 \end{itemize}
 
-- Should feature vectors cut across the levels or not?
 - In general should be composable if at each level can define decision and reward,
 and exploration randomization is different at each level
 
