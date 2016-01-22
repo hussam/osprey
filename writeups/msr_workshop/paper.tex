@@ -68,21 +68,22 @@ to the way we design distributed systems.  We begin by highlighting some of the 
 that contribute to these challenges, and then list the challenges themselves.
 
 \subsection*{Known unknowns}
-Systems often make decisions without having complete knowledge of all the
-factors that affect, or could be affected by, these decisions.  For example, a
-caching system evicts items based on what it thinks future requests will look
-like, even though it cannot actually know what the future will look like. Here,
-decisions are made in anticipation of future events.  In other cases, this
-incomplete knowledge is due to the absence of data-computation locality. For
-example, a load balancer makes decisions based on what it thinks is the current
-load on other machines rather than what it actually is.
 
-In both of these situations, assumptions are made about the unknowns offline in
-\emph{design-time}--resulting in different routing and caching
-algorithms. A change to the \emph{run-time} environment could render these
-decisions wildly inefficient. By deferring to an ML agent, these decisions can
-be made online, and can be nimble in adapting to any changes to the run-time
-environment.
+Systems often make decisions without complete knowledge of the factors that affect,
+or could affect, those decisions.  For example, a caching system evicts items based
+on what it believes future requests will look like, without actually knowing the future.
+In other cases, incomplete knowledge is due to the absence of data-computation locality.
+For example, a load balancer makes decisions based on what it thinks the current load on
+machines is, e.g. based on data it collected recently, rather than the actual load at that
+very instant in time.
+
+In both of these situations, assumptions are made about the unknowns offline during
+\emph{design time}, resulting in different routing and caching algorithms. A change to
+the \emph{run-time} environment could easily render these choices suboptimal.
+
+\ignore{Online learning has the potential to make these decisions online, based on current contexts,
+and can be nimble in adapting to any changes to the run-time
+environment.}
 
 \subsection*{Unknown unknowns}
 In some situations, system designers have no way of knowing deployment details
