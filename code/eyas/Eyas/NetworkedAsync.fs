@@ -51,7 +51,7 @@ type Client(id : int, port : int, randomSeed : int) =
     // helper function to choose the first element of a triple
     let first (one, two, three) = one
 
-    member this.Run(servers : (string * int) [], minJobSize, maxJobSize, monitoringPeriod : int, numMessages : int) =
+    member this.Run(servers : (string * int) [], minJobSize, maxJobSize, monitoringPeriod : int, minutesToRun : int, msgsPerSec : int) =
         let mutable currIndex = 0
         let mutable secondQlen = Int32.MaxValue
         let mutable queueLengths = servers |> Array.map(fun (hostname, port) -> (0, hostname, port))    // assume all servers have empty queues when we start
@@ -80,11 +80,11 @@ type Client(id : int, port : int, randomSeed : int) =
 
         let rand = new Random(randomSeed)
         let timer = new Diagnostics.Stopwatch()
-        timer.Start()
 
         let sender = async {
+            let timeBetweenMsgs = new TimeSpan(int64(1000 * 1000 * 10 / msgsPerSec))  // a tick is 100 nanoseconds --> 1 sec = 10^7 ticks.
             use socket = new UdpClient()
-            for i in 1..numMessages do
+            while timer.Elapsed.Minutes < minutesToRun do
                 // Pick the server to which the request will be forwarded
                 if first(queueLengths.[currIndex]) > secondQlen then
                     let nextIndex = (currIndex + 1) % servers.Length
@@ -98,6 +98,7 @@ type Client(id : int, port : int, randomSeed : int) =
                 let sendTime = timer.ElapsedMilliseconds
                 let msg = Array.concat [| BitConverter.GetBytes(jobSize); BitConverter.GetBytes(sendTime); BitConverter.GetBytes(port) |]
                 socket.Send(msg, msg.Length, serverHostname, serverPort) |> ignore
+                Thread.Sleep(timeBetweenMsgs)
             return null
         }
 
@@ -106,7 +107,7 @@ type Client(id : int, port : int, randomSeed : int) =
             let results = new List<_>()
             // This IPEndPoint object will allow us to read incoming datagrams sent from any source
             let anySender = new IPEndPoint(IPAddress.Any, 0)
-            while results.Count < numMessages do
+            while timer.Elapsed.Minutes < minutesToRun do
                 let bytes = socket.Receive(ref anySender)
                 let jobSize = BitConverter.ToInt32(bytes, 0)
                 let sendTime = BitConverter.ToInt64(bytes, 4)
@@ -115,6 +116,7 @@ type Client(id : int, port : int, randomSeed : int) =
             return results      // return the delays experienced
         }
 
+        timer.Start()
         let results = [receiver; sender]
                         |> Async.Parallel
                         |> Async.RunSynchronously

@@ -52,7 +52,7 @@ type Client(id : int, randomSeed) =
     // helper function to choose the first element of a triple
     let first (one, two, three) = one
 
-    member this.Run(servers : (string * int) [], minJobSize, maxJobSize, monitoringPeriod : int, numMessages : int) =
+    member this.Run(servers : (string * int) [], minJobSize, maxJobSize, monitoringPeriod : int, minutesToRun : int) =
         let mutable currIndex = 0
         let mutable secondQlen = Int32.MaxValue
         let mutable queueLengths = servers |> Array.map(fun (hostname, port) -> (0, hostname, port))    // assume all servers have empty queues when we start
@@ -88,7 +88,7 @@ type Client(id : int, randomSeed) =
         use socket = new UdpClient()
 
         timer.Start()
-        for i in 1..numMessages do
+        while timer.Elapsed.Minutes < minutesToRun do
             let jobSize = rand.Next(minJobSize, maxJobSize)
             let msg = BitConverter.GetBytes(jobSize)
 
