@@ -1,0 +1,33 @@
+Organize experiment as follows:
+
+- Plot probability distribution function of job delay. Not across runs, but in a
+  single run (with a single value for the server queue refresh rate).
+
+- Experiment Setup:
+   - All jobs have the same size.
+   - There is a "devil" that hops between servers in a round-robin fashion,
+     where the machine that has the devil on it, is super slow in responding to
+     requests (1 or 2 orders of magnitude slower).
+   - Adjust the frequency of how often the devil hops.
+
+- Exp 0: All servers run normally, the devil does not exist. The PDF is expected
+  to be a normal distribution where the mean is related to the job size and the
+  rate at which jobs are sent to servers. (Job delay is on X-axis, and % of jobs
+  is on the Y-axis).
+
+- Exp 1: Introduce a very slow devil. Effectively, only a single server is slow,
+  and it doesn't change. The PDF is expected to see a spike at 1-(1/n) mark,
+  where n is the number of servers.
+
+- Exp 2: Speed up the devil. The PDF is expected to go wild since any job could
+  be slow.
+
+- Exp 3: Introduce server queue sampling at a rate faster than the devil's
+  hoping speed. We should get a PDF that looks closer to Exp 1.
+
+- Exp 4: Make the devil faster, and show the effect with an increased sampling
+  rate.
+
+- Conclusion we want to reach, if the devil is fast enough, our sampling rate
+  might never be enough. ML can help because it will model the pattern of the
+  devil's hopping rather than just looking at a static snapshot of where it is.
