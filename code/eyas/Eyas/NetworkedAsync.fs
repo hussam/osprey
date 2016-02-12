@@ -7,47 +7,76 @@ open System.Net.Sockets
 open System.Threading
 
 module Server =
+    let FlushPendingMessages(localPort : int, serverHostname : string, serverPort : int) =
+        use socket = new UdpClient(localPort)
+        let flushMsg = Array.concat [| BitConverter.GetBytes(-1); BitConverter.GetBytes(0L); BitConverter.GetBytes(localPort) |]
+        socket.Send(flushMsg, flushMsg.Length, serverHostname, serverPort) |> ignore
+        socket.Receive(ref (new IPEndPoint(IPAddress.Any, 0))) |> ignore
+
     let Start(port : int, randomSeed : int, variablePerformance : bool, minMultiplierPct : int, maxMultiplierPct : int, varPeriodFloor : int, varPeriodCeiling : int) =
-        let rand = new Random(randomSeed)
+        let mutable rand = new Random(randomSeed)
         let mutable multiplier = 100
 
-        match variablePerformance with
-        | true ->
+        use cts = new CancellationTokenSource()
+        let variablePerformanceThread =
             async {
                 while true do
                     let period = rand.Next(varPeriodFloor, varPeriodCeiling)
                     multiplier <- rand.Next(minMultiplierPct, maxMultiplierPct)
                     Thread.Sleep(period)
-            } |> Async.Start
-        | false -> ()   // do nothing
+            }
+
+        let reset () =
+            cts.Cancel()
+            rand <- new Random(randomSeed)
+            multiplier <- 100
+            if variablePerformance then
+                Async.Start(variablePerformanceThread, cts.Token)
+
+        reset()
 
         // The server loop that does the actual job execution
         let server = MailboxProcessor<int * byte[] * int>.Start(fun inbox ->
-            async {
+             async {
                 use replySocket = new UdpClient()
+                let rec flush () =  async {
+                    let! opt = inbox.TryReceive(1000)    // 1 second timeout to receive any in-flight messages -- this is overkill for co-located clients/servers
+                    match opt with
+                    | None -> ()
+                    | Some _ -> do! flush()
+                }
                 while true do
                     let! jobSize, buffer, port = inbox.Receive()
-                    Thread.Sleep(jobSize * multiplier / 100)
-                    replySocket.Send(buffer, buffer.Length, "127.0.0.1", port) |> ignore
-            } )
+                    if multiplier < 0 then
+                       printf "Flushing..."
+                       let flushResponsePort = -1 * multiplier
+                       do! flush()
+                       reset()
+                       printfn "done!"
+                       replySocket.Send(buffer, buffer.Length, "127.0.0.1", flushResponsePort) |> ignore
+                    else
+                       Thread.Sleep(jobSize * multiplier / 100)
+                       replySocket.Send(buffer, buffer.Length, "127.0.0.1", port) |> ignore
+             })
 
         // The server loop that listens to incomming requests from clients
         use rcvSocket = new UdpClient(port)
         while true do
             let result = rcvSocket.ReceiveAsync() |> Async.AwaitTask |> Async.RunSynchronously
             let jobSize = BitConverter.ToInt32(result.Buffer, 0)
-            if jobSize = 0 then
+            if jobSize = 0 then     // report queue length
                 let sender = result.RemoteEndPoint
                 let qlen = BitConverter.GetBytes(server.CurrentQueueLength)
                 rcvSocket.Send(qlen, qlen.Length, sender) |> ignore
-            else
+            else     // append message to queue
                 let port = BitConverter.ToInt32(result.Buffer, 12)
+                if jobSize = -1 then multiplier <- -1 * port    // special code to flush queue
                 server.Post(jobSize, result.Buffer, port)
 
 
 
 
-type Client(id : int, port : int, randomSeed : int) =
+type Client(port : int, randomSeed : int) =
     // helper function to choose the first element of a triple
     let first (one, two, three) = one
 

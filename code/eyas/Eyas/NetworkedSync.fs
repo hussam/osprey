@@ -48,7 +48,7 @@ module Server =
 
 
 
-type Client(id : int, randomSeed) =
+type Client(randomSeed) =
     // helper function to choose the first element of a triple
     let first (one, two, three) = one
 

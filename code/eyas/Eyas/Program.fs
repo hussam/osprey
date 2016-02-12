@@ -30,7 +30,7 @@ type Config = {
     servers : (string * int) list
     minutesToRun : int
     msgsPerSec : int
-    clientPort : int
+    clientPortBase : int
     randomSeed : int
     varPerf : VariablePerformanceConfig
 }
@@ -51,7 +51,7 @@ let defaultConfig = {
     servers = []
     minutesToRun = 1
     msgsPerSec = 100
-    clientPort = 4000
+    clientPortBase = 4000
     randomSeed = 3000
     varPerf = {isVariablePerf = false; minMultiplierPct = 100; maxMultiplierPct = 100; periodFloor = Int32.MaxValue; periodCeiling = Int32.MaxValue}
 }
@@ -148,6 +148,14 @@ let main args =
         let results =
             [ config.refreshPeriod .. config.incRefreshPeriod .. config.maxRefreshPeriod ]
             |> List.map (fun r ->
+                    if config.isAsync then
+                        printf "Flushing servers ... "
+                        config.servers
+                        |> List.mapi(fun i (host, port) -> async { Async.Server.FlushPendingMessages(config.clientPortBase + i, host, port) })
+                        |> Async.Parallel
+                        |> Async.RunSynchronously
+                        |> ignore
+                        printfn "done"
                     printf "Starting run with refresh every %d ms ... " r
                     let timer = Diagnostics.Stopwatch()
                     timer.Start()
@@ -156,10 +164,10 @@ let main args =
                         |> Array.map(fun i ->
                                         match config.isAsync with
                                         | false ->
-                                            let c = new Sync.Client(i, config.randomSeed)
+                                            let c = new Sync.Client(config.randomSeed)
                                             async { return c.Run( List.toArray config.servers, config.minJobSize, config.maxJobSize, config.refreshPeriod, config.minutesToRun ) }
                                         | true ->
-                                            let c = new Async.Client(i, config.clientPort, config.randomSeed)
+                                            let c = new Async.Client(config.clientPortBase + i, config.randomSeed)
                                             async { return c.Run( List.toArray config.servers, config.minJobSize, config.maxJobSize, config.refreshPeriod, config.minutesToRun, config.msgsPerSec ) } )
                         |> Async.Parallel
                         |> Async.RunSynchronously
