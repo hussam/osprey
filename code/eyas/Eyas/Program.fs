@@ -28,7 +28,7 @@ type Config = {
     maxRefreshPeriod : int
     incRefreshPeriod : int
     servers : (string * int) list
-    minutesToRun : int
+    msgsToSend : int
     msgsPerSec : int
     clientPortBase : int
     randomSeed : int
@@ -49,7 +49,7 @@ let defaultConfig = {
     maxRefreshPeriod = 30
     incRefreshPeriod = Int32.MaxValue
     servers = []
-    minutesToRun = 1
+    msgsToSend = 1
     msgsPerSec = 100
     clientPortBase = 4000
     randomSeed = 3000
@@ -105,9 +105,9 @@ let rec parseArgs (config, args : string list) =
         parseArgs ({config with servers = (host, port) :: config.servers}, tail)
     | "--async" :: tail | "-a" :: tail ->
         parseArgs ({config with isAsync = true}, tail)
-    | "--minutesToRun" :: nm :: tail | "-m" :: nm :: tail ->
+    | "--msgsToSend" :: nm :: tail | "-m" :: nm :: tail ->
         let n = Int32.Parse(nm)
-        parseArgs ({config with minutesToRun = n}, tail)
+        parseArgs ({config with msgsToSend = n}, tail)
     | "--msgsPerSec" :: mps :: tail | "-mps" :: mps :: tail ->
         let r = Int32.Parse(mps)
         parseArgs ({config with msgsPerSec = r}, tail)
@@ -165,18 +165,24 @@ let main args =
                                         match config.isAsync with
                                         | false ->
                                             let c = new Sync.Client(config.randomSeed)
-                                            async { return c.Run( List.toArray config.servers, config.minJobSize, config.maxJobSize, config.refreshPeriod, config.minutesToRun ) }
+                                            async { return c.Run( List.toArray config.servers, config.minJobSize, config.maxJobSize, config.refreshPeriod, config.msgsToSend ) }
                                         | true ->
                                             let c = new Async.Client(config.clientPortBase + i, config.randomSeed)
-                                            async { return c.Run( List.toArray config.servers, config.minJobSize, config.maxJobSize, config.refreshPeriod, config.minutesToRun, config.msgsPerSec ) } )
+                                            async { return c.Run( List.toArray config.servers, config.minJobSize, config.maxJobSize, config.refreshPeriod, config.msgsToSend, config.msgsPerSec ) } )
                         |> Async.Parallel
                         |> Async.RunSynchronously
                         |> Array.fold (fun accIn clientResults -> Array.append accIn (clientResults.ToArray())) [||]
-                        |> Array.map (fun i -> int(i))  // cast results to integers
+                        |> Array.map int    // cast results to integers
+                        |> Array.sort
+                        |> Array.mapi (fun i latency -> (float(i+1)/ float(config.msgsToSend), latency))
                     timer.Stop()
                     printfn "done in %d ms" timer.ElapsedMilliseconds
                     (r, results))
-        let chart = Chart.BoxPlotFromData (results, ShowAverage = true, WhiskerPercentile = 5)
+        results |> List.iter(fun (r, results) -> for r in results do printfn "%A" r)
+        let chart =
+            results
+            |> List.map (fun (r, results) -> Chart.Line(results, Name=(sprintf "Probe Queues Every %d ms" r)).WithYAxis(Title="Added Latency (ms)").WithXAxis(Title="Pct of Requests"))
+            |> Chart.Combine
         Windows.Forms.Application.Run(chart.ShowChart())
     0 // return an integer exit code
 
