@@ -181,8 +181,9 @@ let main args =
         results |> List.iter(fun (r, results) -> for r in results do printfn "%A" r)
         let chart =
             results
-            |> List.map (fun (r, results) -> Chart.Line(results, Name=(sprintf "Probe Queues Every %d ms" r)).WithYAxis(Title="Added Latency (ms)").WithXAxis(Title="Pct of Requests"))
+            |> List.map (fun (r, results) -> Chart.Line(results, Name=(sprintf "Probe Queues Every %d ms" r)))
             |> Chart.Combine
+            |> (fun chart -> chart.WithYAxis(Title="Added Latency (ms)").WithXAxis(Title="Pct of Requests"))
         Windows.Forms.Application.Run(chart.ShowChart())
     0 // return an integer exit code
 
