@@ -13,6 +13,7 @@ type VariablePerformanceConfig = {
     maxMultiplierPct : int
     periodFloor : int
     periodCeiling : int
+    slowdownMod : int
 }
 
 type Config = {
@@ -53,7 +54,7 @@ let defaultConfig = {
     msgsPerSec = 100
     clientPortBase = 4000
     randomSeed = 3000
-    varPerf = {isVariablePerf = false; minMultiplierPct = 100; maxMultiplierPct = 100; periodFloor = Int32.MaxValue; periodCeiling = Int32.MaxValue}
+    varPerf = {isVariablePerf = false; minMultiplierPct = 100; maxMultiplierPct = 100; periodFloor = Int32.MaxValue; periodCeiling = Int32.MaxValue; slowdownMod = 0 }
 }
 
 
@@ -118,11 +119,22 @@ let rec parseArgs (config, args : string list) =
         match vp.Split(':') with
         | [| minMult ; maxMult ; minPeriod ; maxPeriod |] ->
             let v = {
-                isVariablePerf = true;
+                isVariablePerf = true
                 minMultiplierPct = Int32.Parse(minMult)
                 maxMultiplierPct = Int32.Parse(maxMult)
                 periodFloor = Int32.Parse(minPeriod)
                 periodCeiling = Int32.Parse(maxPeriod)
+                slowdownMod = 0
+            }
+            parseArgs ({config with varPerf = v}, tail)
+        | [| multiplier ; slowdownMod |] ->
+            let v = {
+                isVariablePerf = true;
+                minMultiplierPct = Int32.Parse(multiplier)
+                maxMultiplierPct = Int32.Parse(multiplier)
+                periodFloor = 0
+                periodCeiling = 0
+                slowdownMod = Int32.Parse(slowdownMod)
             }
             parseArgs ({config with varPerf = v}, tail)
         | _ ->
@@ -185,6 +197,7 @@ let main args =
             |> Chart.Combine
             |> (fun chart -> chart.WithYAxis(Title="Added Latency (ms)").WithXAxis(Title="Pct of Requests"))
         Windows.Forms.Application.Run(chart.ShowChart())
+        //chart.SaveChartAs(sprintf "chart-%s.png" (DateTime.Now.ToString "MM-dd-HH-mm"), ChartTypes.ChartImageFormat.Png)
     0 // return an integer exit code
 
 

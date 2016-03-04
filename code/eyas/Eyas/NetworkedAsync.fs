@@ -16,7 +16,6 @@ module Server =
     let Start(port : int, randomSeed : int, variablePerformance : bool, minMultiplierPct : int, maxMultiplierPct : int, varPeriodFloor : int, varPeriodCeiling : int) =
         let mutable rand = new Random(randomSeed)
         let mutable multiplier = 100
-        let mutable jobsReceived = 0
 
         use mutable cts = new CancellationTokenSource()
         let variablePerformanceThread =
@@ -29,8 +28,6 @@ module Server =
             }
 
         let reset () =
-            printfn "Received a total of %d jobs" jobsReceived
-            jobsReceived <- 0
             cts.Cancel()
             cts.Dispose()
             cts <- new CancellationTokenSource()
@@ -61,7 +58,6 @@ module Server =
                        printfn "done!"
                        replySocket.Send(buffer, buffer.Length, "127.0.0.1", flushResponsePort) |> ignore
                     else
-                       jobsReceived <- jobsReceived + 1
                        Thread.Sleep(jobSize * multiplier / 100)
                        replySocket.Send(buffer, buffer.Length, "127.0.0.1", port) |> ignore
              })
