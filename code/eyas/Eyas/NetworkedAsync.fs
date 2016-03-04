@@ -16,18 +16,24 @@ module Server =
     let Start(port : int, randomSeed : int, variablePerformance : bool, minMultiplierPct : int, maxMultiplierPct : int, varPeriodFloor : int, varPeriodCeiling : int) =
         let mutable rand = new Random(randomSeed)
         let mutable multiplier = 100
+        let mutable jobsReceived = 0
 
-        use cts = new CancellationTokenSource()
+        use mutable cts = new CancellationTokenSource()
         let variablePerformanceThread =
             async {
                 while true do
                     let period = rand.Next(varPeriodFloor, varPeriodCeiling)
                     multiplier <- rand.Next(minMultiplierPct, maxMultiplierPct)
+                    printfn "--Set job length multiplier to x%d" multiplier
                     Thread.Sleep(period)
             }
 
         let reset () =
+            printfn "Received a total of %d jobs" jobsReceived
+            jobsReceived <- 0
             cts.Cancel()
+            cts.Dispose()
+            cts <- new CancellationTokenSource()
             rand <- new Random(randomSeed)
             multiplier <- 100
             if variablePerformance then
@@ -48,13 +54,14 @@ module Server =
                 while true do
                     let! jobSize, buffer, port = inbox.Receive()
                     if multiplier < 0 then
-                       printf "Flushing..."
+                       printfn "Flushing..."
                        let flushResponsePort = -1 * multiplier
                        do! flush()
                        reset()
                        printfn "done!"
                        replySocket.Send(buffer, buffer.Length, "127.0.0.1", flushResponsePort) |> ignore
                     else
+                       jobsReceived <- jobsReceived + 1
                        Thread.Sleep(jobSize * multiplier / 100)
                        replySocket.Send(buffer, buffer.Length, "127.0.0.1", port) |> ignore
              })
@@ -66,8 +73,10 @@ module Server =
             let jobSize = BitConverter.ToInt32(result.Buffer, 0)
             if jobSize = 0 then     // report queue length
                 let sender = result.RemoteEndPoint
-                let qlen = BitConverter.GetBytes(server.CurrentQueueLength)
-                rcvSocket.Send(qlen, qlen.Length, sender) |> ignore
+                let qlen = server.CurrentQueueLength
+                printfn "--Probed for Queue Length. Answer: %d" qlen
+                let response = BitConverter.GetBytes(server.CurrentQueueLength)
+                rcvSocket.Send(response, response.Length, sender) |> ignore
             else     // append message to queue
                 let port = BitConverter.ToInt32(result.Buffer, 12)
                 if jobSize = -1 then multiplier <- -1 * port    // special code to flush queue
@@ -121,7 +130,8 @@ type Client(port : int, randomSeed : int) =
                     let nextnextIndex = (nextIndex + 1) % servers.Length
                     currIndex <- nextIndex
                     secondQlen <- first(queueLengths.[nextnextIndex])
-                let (_, serverHostname, serverPort) = queueLengths.[currIndex]
+                let (qlen, serverHostname, serverPort) = queueLengths.[currIndex]
+                queueLengths.[currIndex] <- (qlen + 1, serverHostname, serverPort)
 
                 // Send the message to the server and measure the extra delay
                 let jobSize = rand.Next(minJobSize, maxJobSize)

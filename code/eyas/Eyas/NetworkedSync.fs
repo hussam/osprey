@@ -98,7 +98,8 @@ type Client(randomSeed) =
                 let nextnextIndex = (nextIndex + 1) % servers.Length
                 currIndex <- nextIndex
                 secondQlen <- first(queueLengths.[nextnextIndex])
-            let (_, serverHostname, serverPort) = queueLengths.[currIndex]
+            let (qlen, serverHostname, serverPort) = queueLengths.[currIndex]
+            queueLengths.[currIndex] <- (qlen + 1, serverHostname, serverPort)
 
             // Send the message to the server and measure the extra delay
             let sendTime = timer.ElapsedMilliseconds
