@@ -186,7 +186,7 @@ let main args =
                         |> Array.fold (fun accIn clientResults -> Array.append accIn (clientResults.ToArray())) [||]
                         |> Array.map int    // cast results to integers
                         |> Array.sort
-                        |> Array.mapi (fun i latency -> (float(i+1)/ float(config.msgsToSend), latency))
+                        |> Array.mapi (fun i latency -> (100.0 * float(i+1) / float(config.msgsToSend), latency))
                     timer.Stop()
                     printfn "done in %d ms" timer.ElapsedMilliseconds
                     (r, results))
