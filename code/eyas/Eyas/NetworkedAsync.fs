@@ -13,18 +13,23 @@ module Server =
         socket.Send(flushMsg, flushMsg.Length, serverHostname, serverPort) |> ignore
         socket.Receive(ref (new IPEndPoint(IPAddress.Any, 0))) |> ignore
 
-    let Start(port : int, randomSeed : int, variablePerformance : bool, minMultiplierPct : int, maxMultiplierPct : int, varPeriodFloor : int, varPeriodCeiling : int) =
+    let Start(port : int, randomSeed : int, variablePerformance : bool, vpMultiplier : int, timePeriod : int, frequency : int, order : int) =
         let mutable rand = new Random(randomSeed)
         let mutable multiplier = 100
 
         use mutable cts = new CancellationTokenSource()
         let variablePerformanceThread =
             async {
+                let mutable counter = 0
                 while true do
-                    let period = rand.Next(varPeriodFloor, varPeriodCeiling)
-                    multiplier <- rand.Next(minMultiplierPct, maxMultiplierPct)
-                    printfn "--Set job length multiplier to x%d" multiplier
-                    Thread.Sleep(period)
+                    counter <- counter + 1
+                    if (counter % frequency) = order then
+                        counter <- order
+                        multiplier <- vpMultiplier
+                    else
+                        multiplier <- 100
+                    printfn "--Multiplier set to x%d" multiplier
+                    Thread.Sleep(timePeriod)
             }
 
         let reset () =
@@ -70,7 +75,6 @@ module Server =
             if jobSize = 0 then     // report queue length
                 let sender = result.RemoteEndPoint
                 let qlen = server.CurrentQueueLength
-                printfn "--Probed for Queue Length. Answer: %d" qlen
                 let response = BitConverter.GetBytes(server.CurrentQueueLength)
                 rcvSocket.Send(response, response.Length, sender) |> ignore
             else     // append message to queue
@@ -86,9 +90,14 @@ type Client(port : int, randomSeed : int) =
     let first (one, two, three) = one
 
     member this.Run(servers : (string * int) [], minJobSize, maxJobSize, monitoringPeriod : int, msgsToSend : int, msgsPerSec : int) =
-        let mutable currIndex = 0
-        let mutable secondQlen = Int32.MaxValue
         let mutable queueLengths = servers |> Array.map(fun (hostname, port) -> (0, hostname, port))    // assume all servers have empty queues when we start
+
+        let computePCutOffs = fun () ->
+            let weights = queueLengths |> Array.map(fun (q,h,p) -> (q+1, h, p))
+            let sumWeights = weights |> Array.sumBy(fun (w,h,p) -> w)
+            weights |> Array.mapFold(fun lastSum (w, h, p) -> let cutOff = (lastSum + sumWeights - w) in ((cutOff, h, p), cutOff)) 0
+
+        let mutable (pCutOffs, pCeil) = computePCutOffs()
 
         // Periodically check the queue lengths at the different servers
         let serverMonitor = async {
@@ -102,10 +111,10 @@ type Client(port : int, randomSeed : int) =
                                         let result = socket.Receive(ref anySender)
                                         let qlen = BitConverter.ToInt32(result, 0)
                                         (qlen, hostname, port) )
-                                |> Array.sortBy(fun (q, _, _) -> q)
-                currIndex <- 0
-                if servers.Length > 1 then
-                    secondQlen <- first(queueLengths.[1])
+                                |> Array.sort
+                let (p, c) = computePCutOffs()
+                pCutOffs <- p
+                pCeil <- c
                 Thread.Sleep(monitoringPeriod)
         }
         // Used to cancel the server queue monitoring thread
@@ -115,19 +124,18 @@ type Client(port : int, randomSeed : int) =
         let rand = new Random(randomSeed)
         let timer = new Diagnostics.Stopwatch()
 
+        let destinations = new List<_>()
+
         let sender = async {
             let timeBetweenMsgs = new TimeSpan(int64(1000 * 1000 * 10 / msgsPerSec))  // a tick is 100 nanoseconds --> 1 sec = 10^7 ticks.
             use socket = new UdpClient()
             for i in 1..msgsToSend do
                 if i % 100 = 0 then printfn "--Sent %d messages." i
                 // Pick the server to which the request will be forwarded
-                if first(queueLengths.[currIndex]) > secondQlen then
-                    let nextIndex = (currIndex + 1) % servers.Length
-                    let nextnextIndex = (nextIndex + 1) % servers.Length
-                    currIndex <- nextIndex
-                    secondQlen <- first(queueLengths.[nextnextIndex])
-                let (qlen, serverHostname, serverPort) = queueLengths.[currIndex]
-                queueLengths.[currIndex] <- (qlen + 1, serverHostname, serverPort)
+                let (_, serverHostname, serverPort) =
+                    let r = rand.Next(pCeil)
+                    Array.find(fun (cutOff, _, _) -> r < cutOff) pCutOffs
+                destinations.Add(serverPort)
 
                 // Send the message to the server and measure the extra delay
                 let jobSize = rand.Next(minJobSize, maxJobSize)
@@ -160,4 +168,9 @@ type Client(port : int, randomSeed : int) =
                         |> Array.head
         timer.Stop()
         cancellationSource.Cancel()     // stop the monitoring thread
+
+        destinations.ToArray()
+        |> Array.countBy(fun x -> x)
+        |> printfn "Destinations: %A"
+
         results                  

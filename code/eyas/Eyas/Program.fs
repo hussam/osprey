@@ -9,11 +9,10 @@ open FSharp.Charting
 
 type VariablePerformanceConfig = {
     isVariablePerf : bool
-    minMultiplierPct : int
-    maxMultiplierPct : int
-    periodFloor : int
-    periodCeiling : int
-    slowdownMod : int
+    multiplier : int
+    timePeriod : int
+    frequency : int
+    order : int
 }
 
 type Config = {
@@ -54,7 +53,7 @@ let defaultConfig = {
     msgsPerSec = 100
     clientPortBase = 4000
     randomSeed = 3000
-    varPerf = {isVariablePerf = false; minMultiplierPct = 100; maxMultiplierPct = 100; periodFloor = Int32.MaxValue; periodCeiling = Int32.MaxValue; slowdownMod = 0 }
+    varPerf = {isVariablePerf = false; multiplier = 100; timePeriod = Int32.MaxValue; frequency = Int32.MaxValue; order = 0}
 }
 
 
@@ -117,24 +116,22 @@ let rec parseArgs (config, args : string list) =
         parseArgs ({config with randomSeed = r}, tail)
     | "--variablePerformance" :: vp :: tail | "-vp" :: vp :: tail ->
         match vp.Split(':') with
-        | [| minMult ; maxMult ; minPeriod ; maxPeriod |] ->
-            let v = {
-                isVariablePerf = true
-                minMultiplierPct = Int32.Parse(minMult)
-                maxMultiplierPct = Int32.Parse(maxMult)
-                periodFloor = Int32.Parse(minPeriod)
-                periodCeiling = Int32.Parse(maxPeriod)
-                slowdownMod = 0
-            }
-            parseArgs ({config with varPerf = v}, tail)
-        | [| multiplier ; slowdownMod |] ->
+        | [| multiplier |] ->
             let v = {
                 isVariablePerf = true;
-                minMultiplierPct = Int32.Parse(multiplier)
-                maxMultiplierPct = Int32.Parse(multiplier)
-                periodFloor = 0
-                periodCeiling = 0
-                slowdownMod = Int32.Parse(slowdownMod)
+                multiplier = Int32.Parse(multiplier)
+                timePeriod = Int32.MaxValue
+                frequency  = 1
+                order = 0
+            }
+            parseArgs ({config with varPerf = v}, tail)
+        | [| multiplier ; period ; frequency ; order |] ->
+            let v = {
+                isVariablePerf = true
+                multiplier = Int32.Parse(multiplier)
+                timePeriod = Int32.Parse(period)
+                frequency  = Int32.Parse(frequency)
+                order      = Int32.Parse(order) - 1
             }
             parseArgs ({config with varPerf = v}, tail)
         | _ ->
@@ -154,8 +151,8 @@ let main args =
     | true, _ -> runLocal config
     | false, true ->
         match config.isAsync with
-        | false -> Sync.Server.Start(config.serverPort, config.randomSeed, config.varPerf.isVariablePerf, config.varPerf.minMultiplierPct, config.varPerf.maxMultiplierPct, config.varPerf.periodFloor, config.varPerf.periodCeiling)
-        | true -> Async.Server.Start(config.serverPort, config.randomSeed, config.varPerf.isVariablePerf, config.varPerf.minMultiplierPct, config.varPerf.maxMultiplierPct, config.varPerf.periodFloor, config.varPerf.periodCeiling)
+        | false -> Sync.Server.Start(config.serverPort, config.randomSeed, config.varPerf.isVariablePerf, config.varPerf.multiplier, config.varPerf.timePeriod, config.varPerf.frequency, config.varPerf.order)
+        | true -> Async.Server.Start(config.serverPort, config.randomSeed, config.varPerf.isVariablePerf, config.varPerf.multiplier, config.varPerf.timePeriod, config.varPerf.frequency, config.varPerf.order)
     | false, false ->
         let results =
             [ config.refreshPeriod .. config.incRefreshPeriod .. config.maxRefreshPeriod ]
@@ -190,17 +187,12 @@ let main args =
                     timer.Stop()
                     printfn "done in %d ms" timer.ElapsedMilliseconds
                     (r, results))
-        results |> List.iter(fun (r, results) -> for r in results do printfn "%A" r)
+        //results |> List.iter(fun (r, results) -> for r in results do printfn "%A" r)
         let chart =
             results
             |> List.map (fun (r, results) -> Chart.Line(results, Name=(sprintf "Probe Queues Every %d ms" r)))
             |> Chart.Combine
             |> (fun chart -> chart.WithYAxis(Title="Added Latency (ms)").WithXAxis(Title="Pct of Requests"))
+        //chart |> Chart.Save(sprintf "results/chart-%s.png" (DateTime.Now.ToString "MM-dd-HH-mm"))
         Windows.Forms.Application.Run(chart.ShowChart())
-        //chart.SaveChartAs(sprintf "chart-%s.png" (DateTime.Now.ToString "MM-dd-HH-mm"), ChartTypes.ChartImageFormat.Png)
     0 // return an integer exit code
-
-
-    
-
-

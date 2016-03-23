@@ -7,17 +7,23 @@ open System.Net.Sockets
 open System.Threading
 
 module Server =
-    let Start(port : int, randomSeed : int, variablePerformance : bool, minMultiplierPct : int, maxMultiplierPct : int, varPeriodFloor : int, varPeriodCeiling : int) =
+    let Start(port : int, randomSeed : int, variablePerformance : bool, vpMultiplier : int, timePeriod : int, frequency : int, order : int) =
         let rand = new Random(randomSeed)
         let mutable multiplier = 100
 
         match variablePerformance with
         | true ->
             async {
+                let mutable counter = 0
                 while true do
-                    let period = rand.Next(varPeriodFloor, varPeriodCeiling)
-                    multiplier <- rand.Next(minMultiplierPct, maxMultiplierPct)
-                    Thread.Sleep(period)
+                    counter <- counter + 1
+                    if (counter % frequency) = order then
+                        counter <- order
+                        multiplier <- vpMultiplier
+                    else
+                        multiplier <- 100
+                    printfn "--Multiplier set to x%d" multiplier
+                    Thread.Sleep(timePeriod)
             } |> Async.Start
         | false -> ()   // do nothing
 
