@@ -190,9 +190,10 @@ let main args =
         //results |> List.iter(fun (r, results) -> for r in results do printfn "%A" r)
         let chart =
             results
-            |> List.map (fun (r, results) -> Chart.Line(results, Name=(sprintf "Probe Queues Every %d ms" r)))
+            |> List.map (fun (r, results) -> let title = (sprintf "Probe Queues Every %d ms" r) in Chart.Line(results, Name=title).WithLegend(Enabled=true))
             |> Chart.Combine
             |> (fun chart -> chart.WithYAxis(Title="Added Latency (ms)").WithXAxis(Title="Pct of Requests"))
         //chart |> Chart.Save(sprintf "results/chart-%s.png" (DateTime.Now.ToString "MM-dd-HH-mm"))
+        printfn "Number of results = %d" results.Length
         Windows.Forms.Application.Run(chart.ShowChart())
     0 // return an integer exit code

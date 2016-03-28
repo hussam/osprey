@@ -130,7 +130,7 @@ type Client(port : int, randomSeed : int) =
             let timeBetweenMsgs = new TimeSpan(int64(1000 * 1000 * 10 / msgsPerSec))  // a tick is 100 nanoseconds --> 1 sec = 10^7 ticks.
             use socket = new UdpClient()
             for i in 1..msgsToSend do
-                if i % 100 = 0 then printfn "--Sent %d messages." i
+                //if i % 100 = 0 then printfn "--Sent %d messages." i
                 // Pick the server to which the request will be forwarded
                 let (_, serverHostname, serverPort) =
                     let r = rand.Next(pCeil)
@@ -152,7 +152,7 @@ type Client(port : int, randomSeed : int) =
             // This IPEndPoint object will allow us to read incoming datagrams sent from any source
             let anySender = new IPEndPoint(IPAddress.Any, 0)
             while results.Count < msgsToSend do
-                if results.Count % 100 = 0 then printfn "Received %d messages." results.Count
+                //if results.Count % 100 = 0 then printfn "Received %d messages." results.Count
                 let bytes = socket.Receive(ref anySender)
                 let jobSize = BitConverter.ToInt32(bytes, 0)
                 let sendTime = BitConverter.ToInt64(bytes, 4)
@@ -171,6 +171,7 @@ type Client(port : int, randomSeed : int) =
 
         destinations.ToArray()
         |> Array.countBy(fun x -> x)
+        |> Array.sort
         |> printfn "Destinations: %A"
 
         results                  
