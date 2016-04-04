@@ -39,7 +39,7 @@ type Config = {
 let defaultConfig = {
     isLocal = true
     isServer = true
-    isAsync = false
+    isAsync = true
     numLocalClients = 10
     numLocalServers = 3
     serverPort = 8000
@@ -150,9 +150,7 @@ let main args =
     match (config.isLocal, config.isServer) with
     | true, _ -> runLocal config
     | false, true ->
-        match config.isAsync with
-        | false -> Sync.Server.Start(config.serverPort, config.randomSeed, config.varPerf.isVariablePerf, config.varPerf.multiplier, config.varPerf.timePeriod, config.varPerf.frequency, config.varPerf.order)
-        | true -> Async.Server.Start(config.serverPort, config.randomSeed, config.varPerf.isVariablePerf, config.varPerf.multiplier, config.varPerf.timePeriod, config.varPerf.frequency, config.varPerf.order)
+        Async.Server.Start(config.serverPort, config.randomSeed, config.varPerf.isVariablePerf, config.varPerf.multiplier, config.varPerf.timePeriod, config.varPerf.frequency, config.varPerf.order)
     | false, false ->
         let results =
             [ config.refreshPeriod .. config.incRefreshPeriod .. config.maxRefreshPeriod ]
@@ -171,13 +169,8 @@ let main args =
                     let results =
                         [| 1..config.numLocalClients |]
                         |> Array.map(fun i ->
-                                        match config.isAsync with
-                                        | false ->
-                                            let c = new Sync.Client(config.randomSeed)
-                                            async { return c.Run( List.toArray config.servers, config.minJobSize, config.maxJobSize, config.refreshPeriod, config.msgsToSend ) }
-                                        | true ->
-                                            let c = new Async.Client(config.clientPortBase + i, config.randomSeed)
-                                            async { return c.Run( List.toArray config.servers, config.minJobSize, config.maxJobSize, config.refreshPeriod, config.msgsToSend, config.msgsPerSec ) } )
+                                        let c = new Async.Client(config.clientPortBase + i, config.randomSeed)
+                                        async { return c.Run( List.toArray config.servers, config.minJobSize, config.maxJobSize, config.refreshPeriod, config.msgsToSend, config.msgsPerSec ) } )
                         |> Async.Parallel
                         |> Async.RunSynchronously
                         |> Array.fold (fun accIn clientResults -> Array.append accIn (clientResults.ToArray())) [||]

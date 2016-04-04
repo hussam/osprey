@@ -55,7 +55,6 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="NetworkedSync.fs" />
     <Compile Include="NetworkedAsync.fs" />
     <Compile Include="Local.fs" />
     <Compile Include="Program.fs" />
