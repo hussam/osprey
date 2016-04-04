@@ -9,7 +9,7 @@ open System.Threading
 module Server =
     let FlushPendingMessages(localPort : int, serverHostname : string, serverPort : int) =
         use socket = new UdpClient(localPort)
-        let flushMsg = Array.concat [| BitConverter.GetBytes(-1); BitConverter.GetBytes(0L); BitConverter.GetBytes(localPort) |]
+        let flushMsg = Array.concat [| BitConverter.GetBytes(-1); BitConverter.GetBytes(0); BitConverter.GetBytes(localPort) |]
         socket.Send(flushMsg, flushMsg.Length, serverHostname, serverPort) |> ignore
         socket.Receive(ref (new IPEndPoint(IPAddress.Any, 0))) |> ignore
 
@@ -78,7 +78,7 @@ module Server =
                 let response = BitConverter.GetBytes(server.CurrentQueueLength)
                 rcvSocket.Send(response, response.Length, sender) |> ignore
             else     // append message to queue
-                let port = BitConverter.ToInt32(result.Buffer, 12)
+                let port = BitConverter.ToInt32(result.Buffer, 8)
                 if jobSize = -1 then multiplier <- -1 * port    // special code to flush queue
                 server.Post(jobSize, result.Buffer, port)
 
@@ -92,12 +92,16 @@ type Client(port : int, randomSeed : int) =
     member this.Run(servers : (string * int) [], minJobSize, maxJobSize, monitoringPeriod : int, msgsToSend : int, msgsPerSec : int) =
         let mutable queueLengths = servers |> Array.map(fun (hostname, port) -> (0, hostname, port))    // assume all servers have empty queues when we start
 
-        let computePCutOffs = fun () ->
-            let weights = queueLengths |> Array.map(fun (q,h,p) -> (q+1, h, p))
-            let sumWeights = weights |> Array.sumBy(fun (w,h,p) -> w)
-            weights |> Array.mapFold(fun lastSum (w, h, p) -> let cutOff = (lastSum + sumWeights - w) in ((cutOff, h, p), cutOff)) 0
+        let computePCutOffs = fun (qlens) ->
+            let weights = qlens |> Array.map(fun (q,h,p) -> (q+1, q, h, p))
+            let sumWeights = weights |> Array.sumBy(fun (w,q,h,p) -> w)
+            weights
+            |> Array.mapFold(fun lastSum (w, q, h, p) ->
+                let cutOff = (lastSum + sumWeights - w)
+                let probabilityOfSelection = (float (sumWeights - w)) / (float sumWeights * 2.0)
+                ((cutOff, probabilityOfSelection, q, h, p), cutOff)) 0
 
-        let mutable (pCutOffs, pCeil) = computePCutOffs()
+        let mutable (pCutOffs, pCeil) = computePCutOffs(queueLengths)
 
         // Periodically check the queue lengths at the different servers
         let serverMonitor = async {
@@ -112,7 +116,7 @@ type Client(port : int, randomSeed : int) =
                                         let qlen = BitConverter.ToInt32(result, 0)
                                         (qlen, hostname, port) )
                                 |> Array.sort
-                let (p, c) = computePCutOffs()
+                let (p, c) = computePCutOffs(queueLengths)
                 pCutOffs <- p
                 pCeil <- c
                 Thread.Sleep(monitoringPeriod)
@@ -124,7 +128,7 @@ type Client(port : int, randomSeed : int) =
         let rand = new Random(randomSeed)
         let timer = new Diagnostics.Stopwatch()
 
-        let destinations = new List<_>()
+        let jobsInFlight = new Dictionary<_, _>()
 
         let sender = async {
             let timeBetweenMsgs = new TimeSpan(int64(1000 * 1000 * 10 / msgsPerSec))  // a tick is 100 nanoseconds --> 1 sec = 10^7 ticks.
@@ -132,16 +136,17 @@ type Client(port : int, randomSeed : int) =
             for i in 1..msgsToSend do
                 //if i % 100 = 0 then printfn "--Sent %d messages." i
                 // Pick the server to which the request will be forwarded
-                let (_, serverHostname, serverPort) =
+                let (_, p, qlen, serverHostname, serverPort) =
                     let r = rand.Next(pCeil)
-                    Array.find(fun (cutOff, _, _) -> r < cutOff) pCutOffs
-                destinations.Add(serverPort)
+                    Array.find(fun (cutOff, _, _, _, _) -> r < cutOff) pCutOffs
 
                 // Send the message to the server and measure the extra delay
                 let jobSize = rand.Next(minJobSize, maxJobSize)
                 let sendTime = timer.ElapsedMilliseconds
-                let msg = Array.concat [| BitConverter.GetBytes(jobSize); BitConverter.GetBytes(sendTime); BitConverter.GetBytes(port) |]
+                let msg = Array.concat [| BitConverter.GetBytes(jobSize); BitConverter.GetBytes(i); BitConverter.GetBytes(port) |]
                 socket.Send(msg, msg.Length, serverHostname, serverPort) |> ignore
+
+                jobsInFlight.[i] <- (serverPort, p, qlen, jobSize, sendTime)
                 Thread.Sleep(timeBetweenMsgs)
             return null
         }
@@ -154,10 +159,13 @@ type Client(port : int, randomSeed : int) =
             while results.Count < msgsToSend do
                 //if results.Count % 100 = 0 then printfn "Received %d messages." results.Count
                 let bytes = socket.Receive(ref anySender)
-                let jobSize = BitConverter.ToInt32(bytes, 0)
-                let sendTime = BitConverter.ToInt64(bytes, 4)
                 let endTime = timer.ElapsedMilliseconds
-                results.Add(endTime - sendTime - int64(jobSize))    // record the delay
+                let jobSize = BitConverter.ToInt32(bytes, 0)
+                let jobId = BitConverter.ToInt32(bytes, 4)
+                
+                let (serverport, p, qlen, jobSize, sendTime) = jobsInFlight.[jobId]
+                let delay = endTime - sendTime - int64(jobSize)
+                results.Add((serverport, p, qlen, jobSize, delay))
             return results      // return the delays experienced
         }
 
@@ -168,10 +176,4 @@ type Client(port : int, randomSeed : int) =
                         |> Array.head
         timer.Stop()
         cancellationSource.Cancel()     // stop the monitoring thread
-
-        destinations.ToArray()
-        |> Array.countBy(fun x -> x)
-        |> Array.sort
-        |> printfn "Destinations: %A"
-
         results                  

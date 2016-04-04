@@ -174,7 +174,7 @@ let main args =
                         |> Async.Parallel
                         |> Async.RunSynchronously
                         |> Array.fold (fun accIn clientResults -> Array.append accIn (clientResults.ToArray())) [||]
-                        |> Array.map int    // cast results to integers
+                        |> Array.map (fun ((selectedServer, probabilityOfSelection, qlen, jobSize, experiencedDelay) as r) -> printfn "%A" r; int(experiencedDelay))    // cast results to integers & print results (oh functional gods, please don't smite me)
                         |> Array.sort
                         |> Array.mapi (fun i latency -> (100.0 * float(i+1) / float(config.msgsToSend), latency))
                     timer.Stop()
