@@ -92,7 +92,11 @@ type Client(port : int, randomSeed : int) =
     member this.Run(servers : (string * int) [], minJobSize, maxJobSize, monitoringPeriod : int, msgsToSend : int, msgsPerSec : int) =
         let mutable queueLengths = servers |> Array.map(fun (hostname, port) -> (0, hostname, port))    // assume all servers have empty queues when we start
 
-        let computePCutOffs = fun (qlens) ->
+        let featurize = fun (qlens) ->
+            qlens |> Array.map(fun (q,h,p) -> q)
+
+        let computePCutOffs = fun (queues) ->
+            let qlens = queues |> Array.sort
             let weights = qlens |> Array.map(fun (q,h,p) -> (q+1, q, h, p))
             let sumWeights = weights |> Array.sumBy(fun (w,q,h,p) -> w)
             weights
@@ -115,7 +119,6 @@ type Client(port : int, randomSeed : int) =
                                         let result = socket.Receive(ref anySender)
                                         let qlen = BitConverter.ToInt32(result, 0)
                                         (qlen, hostname, port) )
-                                |> Array.sort
                 let (p, c) = computePCutOffs(queueLengths)
                 pCutOffs <- p
                 pCeil <- c
@@ -146,7 +149,8 @@ type Client(port : int, randomSeed : int) =
                 let msg = Array.concat [| BitConverter.GetBytes(jobSize); BitConverter.GetBytes(i); BitConverter.GetBytes(port) |]
                 socket.Send(msg, msg.Length, serverHostname, serverPort) |> ignore
 
-                jobsInFlight.[i] <- (serverPort, p, qlen, jobSize, sendTime)
+                let idx = queueLengths |> Array.findIndex (fun (q,h,p) -> p = serverPort)
+                jobsInFlight.[i] <- (featurize(queueLengths), jobSize, idx + 1, p, sendTime)
                 Thread.Sleep(timeBetweenMsgs)
             return null
         }
@@ -163,9 +167,9 @@ type Client(port : int, randomSeed : int) =
                 let jobSize = BitConverter.ToInt32(bytes, 0)
                 let jobId = BitConverter.ToInt32(bytes, 4)
                 
-                let (serverport, p, qlen, jobSize, sendTime) = jobsInFlight.[jobId]
-                let delay = endTime - sendTime - int64(jobSize)
-                results.Add((serverport, p, qlen, jobSize, delay))
+                let (qlens, jobSize, selectedServerIdx, p, sendTime) = jobsInFlight.[jobId]
+                let delay = int(endTime - sendTime - int64(jobSize))
+                results.Add((qlens, jobSize, selectedServerIdx, p, delay))
             return results      // return the delays experienced
         }
 

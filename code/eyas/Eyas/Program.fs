@@ -3,6 +3,7 @@ open ToyExample.Networked
 
 open System
 open System.Collections.Generic
+open System.IO
 
 open FSharp.Charting
 
@@ -63,6 +64,21 @@ let runLocal config =
     Runner.startServers(config.numLocalServers, config.refreshPeriod)
     Runner.startClients(config.numLocalClients, Runner.startLoadBalancer(), config.minJobSize, config.maxJobSize)
     System.Threading.Thread.Sleep(60000)
+
+
+let writeExplorationData (data: (int[] * int * int * float * int) []) =
+    let path = "exploration_data.txt"
+    if File.Exists(path) then File.Delete(path)
+    
+    use writer = new StreamWriter(path, true)
+    data |> Array.iter (fun (qlens, jobSize, selectedServerIndex, probabilityOfSelection, experiencedDelay) ->
+        let features =
+            let tmp = qlens |> Array.mapi (fun i qlen -> sprintf "server%d:%d.0" (i+1) qlen)
+            String.Join(" ", tmp)
+
+        writer.WriteLine(sprintf "%d:%d:%.3f | %s" selectedServerIndex experiencedDelay probabilityOfSelection features) )
+
+    data    // return the same data set in case it will be used again in a pipe
 
 
 
@@ -174,7 +190,8 @@ let main args =
                         |> Async.Parallel
                         |> Async.RunSynchronously
                         |> Array.fold (fun accIn clientResults -> Array.append accIn (clientResults.ToArray())) [||]
-                        |> Array.map (fun ((selectedServer, probabilityOfSelection, qlen, jobSize, experiencedDelay) as r) -> printfn "%A" r; int(experiencedDelay))    // cast results to integers & print results (oh functional gods, please don't smite me)
+                        |> writeExplorationData
+                        |> Array.map (fun ((_, _, _, _, experiencedDelay) as r) -> experiencedDelay)    // cast results to integers
                         |> Array.sort
                         |> Array.mapi (fun i latency -> (100.0 * float(i+1) / float(config.msgsToSend), latency))
                     timer.Stop()
