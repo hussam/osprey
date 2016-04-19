@@ -13,6 +13,8 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
     <Name>Eyas</Name>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -55,6 +57,10 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Configuration.fs" />
+    <Compile Include="ArgsParser.fs" />
+    <Compile Include="LearningTypes.fs" />
+    <Compile Include="OfflineLearning.fs" />
     <Compile Include="NetworkedAsync.fs" />
     <Compile Include="Local.fs" />
     <Compile Include="Program.fs" />
@@ -70,13 +76,40 @@
     <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
     </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>..\packages\Newtonsoft.Json.8.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Numerics" />
+    <Reference Include="System.Threading.Tasks.Dataflow">
+      <HintPath>..\packages\Microsoft.Tpl.Dataflow.4.5.24\lib\portable-net45+win8+wpa81\System.Threading.Tasks.Dataflow.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Windows.Forms.DataVisualization" />
+    <Reference Include="VowpalWabbit">
+      <HintPath>..\packages\VowpalWabbit.8.0.0.45\lib\net45\VowpalWabbit.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="VowpalWabbit.Common">
+      <HintPath>..\packages\VowpalWabbit.8.0.0.45\lib\net45\VowpalWabbit.Common.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="VowpalWabbitCore">
+      <HintPath>..\packages\VowpalWabbit.8.0.0.45\lib\net45\VowpalWabbitCore.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
   </ItemGroup>
+  <Import Project="..\packages\VowpalWabbit.8.0.0.45\build\VowpalWabbit.targets" Condition="Exists('..\packages\VowpalWabbit.8.0.0.45\build\VowpalWabbit.targets')" />
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('..\packages\VowpalWabbit.8.0.0.45\build\VowpalWabbit.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\VowpalWabbit.8.0.0.45\build\VowpalWabbit.targets'))" />
+  </Target>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

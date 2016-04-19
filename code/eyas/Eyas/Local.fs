@@ -1,4 +1,4 @@
-﻿namespace ToyExample.Local
+﻿namespace Eyas.Local
 
 type Agent = MailboxProcessor<int *AsyncReplyChannel<unit>>
 
@@ -36,11 +36,11 @@ module Runner =
     open System
     open System.Threading
 
-    let mutable servers = [| |]
-    let mutable currIndex = 0
-    let mutable secondQlen = Int32.MaxValue
+    let mutable private servers = [| |]
+    let mutable private currIndex = 0
+    let mutable private secondQlen = Int32.MaxValue
 
-    let startServers(num, monitoringPeriod : int) =
+    let private startServers(num, monitoringPeriod : int) =
         servers <- (Array.init num (fun _ -> (0, Server.Start())))
         let monitor() =
             async {
@@ -57,7 +57,7 @@ module Runner =
             }
         monitor() |> Async.Start
 
-    let startLoadBalancer() =
+    let private startLoadBalancer() =
         Agent.Start(fun inbox ->
             async {
                 while true do
@@ -74,7 +74,7 @@ module Runner =
                     s.Post((msg, clientReplyChannel))
             })
 
-    let startClients(num, loadBalancer : Agent, minJobSize, maxJobSize) =
+    let private startClients(num, loadBalancer : Agent, minJobSize, maxJobSize) =
         for i = 1 to num do
             async {
                 let rand = new Random()
@@ -86,3 +86,9 @@ module Runner =
                     //let endTime = timer.ElapsedMilliseconds
                     //printfn "%d" (endTime - sendTime)
             } |> Async.Start
+
+
+    let Run(numClients, numServers, refreshPeriod, minJobSize, maxJobSize) =
+        startServers(numServers, refreshPeriod)
+        startClients(numClients, startLoadBalancer(), minJobSize, maxJobSize)
+        System.Threading.Thread.Sleep(60000)

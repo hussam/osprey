@@ -1,4 +1,4 @@
-﻿namespace ToyExample.Networked.Async
+﻿namespace Eyas.Networked
 
 open System
 open System.Collections.Generic
