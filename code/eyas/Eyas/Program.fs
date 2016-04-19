@@ -4,8 +4,6 @@ open Eyas.Configuration
 open Eyas.Network
 open FSharp.Charting
 open System
-open System.Collections.Generic
-                     
 
 [<EntryPoint>]
 let main args =

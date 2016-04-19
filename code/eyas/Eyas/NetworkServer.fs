@@ -2,7 +2,6 @@
 
 module Server =
     open System
-    open System.Collections.Generic
     open System.Net
     open System.Net.Sockets
     open System.Threading
