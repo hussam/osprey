@@ -34,7 +34,13 @@ let main args =
                         [| 1..config.numLocalClients |]
                         |> Array.map(fun i ->
                                         let c = new Client(config.clientPortBase + i, config.randomSeed)
-                                        async { return c.Run( List.toArray config.servers, config.minJobSize, config.maxJobSize, config.refreshPeriod, config.msgsToSend, config.msgsPerSec ) } )
+                                        let routingFunc =
+                                            let rand = new Random(config.randomSeed)
+                                            match config.strategy with
+                                            | RandomSpray -> Strategies.RandomSpray(rand)
+                                            | WeightedRandom -> Strategies.WeightedRandom(rand)
+                                            | ShortestQueue -> Strategies.ShortestQueue(rand)
+                                        async { return c.Run( List.toArray config.servers, config.minJobSize, config.maxJobSize, config.refreshPeriod, config.msgsToSend, config.msgsPerSec, routingFunc ) } )
                         |> Async.Parallel
                         |> Async.RunSynchronously
                         |> Array.fold (fun accIn clientResults -> Array.append accIn (clientResults.ToArray())) [||]

@@ -80,8 +80,9 @@ module ArgsParser =
         | "--strategy" :: s :: tail | "-t" :: s :: tail ->
             let c =
                 match s with
-                | "random" -> {config with strategy = Random}
-                | "weighted" -> {config with strategy = QueueWeighted}
+                | "random" -> {config with strategy = RandomSpray}
+                | "weighted" -> {config with strategy = WeightedRandom}
+                | "shortestQ" -> {config with strategy = ShortestQueue}
                 | _ -> config
             parseArgs (c, tail)
         | arg :: tail ->  // unrecognized argument

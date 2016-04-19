@@ -8,23 +8,12 @@ open System.Threading
 
 type Client(port : int, randomSeed : int) =
 
-    member this.Run(servers : (string * int) [], minJobSize, maxJobSize, monitoringPeriod : int, msgsToSend : int, msgsPerSec : int) =
-        let mutable queueLengths = servers |> Array.map(fun (hostname, port) -> (0, hostname, port))    // assume all servers have empty queues when we start
+    member this.Run(servers : (string * int) [], minJobSize, maxJobSize, monitoringPeriod : int, msgsToSend : int, msgsPerSec : int, routingFunc) =
+        let mutable queueLengths = servers |> Array.map(fun (hostname, port) -> (hostname, port, 0))    // assume all servers have empty queues when we start
 
         let featurize = fun (qlens) ->
-            qlens |> Array.map(fun (q,h,p) -> q)
+            qlens |> Array.map(fun (h,p,q) -> q)
 
-        let computePCutOffs = fun (queues) ->
-            let qlens = queues |> Array.sort
-            let weights = qlens |> Array.map(fun (q,h,p) -> (q+1, q, h, p))
-            let sumWeights = weights |> Array.sumBy(fun (w,q,h,p) -> w)
-            weights
-            |> Array.mapFold(fun lastSum (w, q, h, p) ->
-                let cutOff = (lastSum + sumWeights - w)
-                let probabilityOfSelection = (float (sumWeights - w)) / (float sumWeights * 2.0)
-                ((cutOff, probabilityOfSelection, q, h, p), cutOff)) 0
-
-        let mutable (pCutOffs, pCeil) = computePCutOffs(queueLengths)
 
         // Periodically check the queue lengths at the different servers
         let serverMonitor = async {
@@ -37,10 +26,7 @@ type Client(port : int, randomSeed : int) =
                                         socket.Send(zero, zero.Length, hostname, port) |> ignore
                                         let result = socket.Receive(ref anySender)
                                         let qlen = BitConverter.ToInt32(result, 0)
-                                        (qlen, hostname, port) )
-                let (p, c) = computePCutOffs(queueLengths)
-                pCutOffs <- p
-                pCeil <- c
+                                        (hostname, port, qlen) )
                 Thread.Sleep(monitoringPeriod)
         }
         // Used to cancel the server queue monitoring thread
@@ -58,9 +44,8 @@ type Client(port : int, randomSeed : int) =
             for i in 1..msgsToSend do
                 //if i % 100 = 0 then printfn "--Sent %d messages." i
                 // Pick the server to which the request will be forwarded
-                let (_, p, qlen, serverHostname, serverPort) =
-                    let r = rand.Next(pCeil)
-                    Array.find(fun (cutOff, _, _, _, _) -> r < cutOff) pCutOffs
+                let targetIndex, probabilityOfSelection = routingFunc(queueLengths)
+                let serverHostname, serverPort, _ = queueLengths.[targetIndex]
 
                 // Send the message to the server and measure the extra delay
                 let jobSize = rand.Next(minJobSize, maxJobSize)
@@ -68,8 +53,7 @@ type Client(port : int, randomSeed : int) =
                 let msg = Array.concat [| BitConverter.GetBytes(jobSize); BitConverter.GetBytes(i); BitConverter.GetBytes(port) |]
                 socket.Send(msg, msg.Length, serverHostname, serverPort) |> ignore
 
-                let idx = queueLengths |> Array.findIndex (fun (q,h,p) -> p = serverPort)
-                jobsInFlight.[i] <- (featurize(queueLengths), jobSize, idx + 1, p, sendTime)
+                jobsInFlight.[i] <- (featurize(queueLengths), jobSize, targetIndex, probabilityOfSelection, sendTime)
                 Thread.Sleep(timeBetweenMsgs)
             return null
         }

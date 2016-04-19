@@ -41,7 +41,7 @@ module Offline =
                         Request = {JobSize = (float32 jobSize)}
                         }
 
-                    let label = new ContextualBanditLabel((uint32 selectedServerIndex), (float32 experiencedDelay), (float32 probabilityOfSelection))
+                    let label = new ContextualBanditLabel(uint32 (selectedServerIndex + 1), (float32 experiencedDelay), (float32 probabilityOfSelection))
                     (features, label, selectedServerIndex) )
 
         examples

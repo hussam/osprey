@@ -5,8 +5,9 @@ module Configuration =
 
     /// Load balancer's strategy for routing jobs
     type Strategy =
-        | Random
-        | QueueWeighted
+        | RandomSpray
+        | WeightedRandom
+        | ShortestQueue
 
 
     /// Configuration for varying server performance (aka the "devil")
@@ -60,5 +61,5 @@ module Configuration =
         clientPortBase = 4000
         randomSeed = 3000
         varPerf = {isVariablePerf = false; multiplier = 100; timePeriod = Int32.MaxValue; frequency = Int32.MaxValue; order = 0}
-        strategy = Random
+        strategy = RandomSpray
     }
