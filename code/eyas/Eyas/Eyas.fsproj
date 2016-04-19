@@ -61,7 +61,8 @@
     <Compile Include="ArgsParser.fs" />
     <Compile Include="LearningTypes.fs" />
     <Compile Include="OfflineLearning.fs" />
-    <Compile Include="NetworkedAsync.fs" />
+    <Compile Include="NetworkServer.fs" />
+    <Compile Include="NetworkClient.fs" />
     <Compile Include="Local.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />

@@ -1,7 +1,7 @@
 ﻿open Eyas
 open Eyas.ArgsParser
 open Eyas.Configuration
-open Eyas.Networked
+open Eyas.Network
 open FSharp.Charting
 open System
 open System.Collections.Generic
