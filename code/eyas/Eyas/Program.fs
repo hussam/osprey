@@ -12,7 +12,8 @@ let main args =
     let config = parseArgs (defaultConfig, Array.toList args)
     printfn "Configuration = %A\n" config
     match (config.isLocal, config.isServer) with
-    | true, _ -> Local.Runner.Run(config.numLocalClients, config.numLocalServers, config.refreshPeriod, config.minJobSize, config.maxJobSize)
+    | true, _ ->
+        Local.Runner.Run(config.numLocalClients, config.numLocalServers, config.refreshPeriod, config.minJobSize, config.maxJobSize)
     | false, true ->
         Server.Start(config.serverPort, config.randomSeed, config.varPerf.isVariablePerf, config.varPerf.multiplier, config.varPerf.timePeriod, config.varPerf.frequency, config.varPerf.order)
     | false, false ->

@@ -7,8 +7,6 @@ open System.Net.Sockets
 open System.Threading
 
 type Client(port : int, randomSeed : int) =
-    // helper function to choose the first element of a triple
-    let first (one, two, three) = one
 
     member this.Run(servers : (string * int) [], minJobSize, maxJobSize, monitoringPeriod : int, msgsToSend : int, msgsPerSec : int) =
         let mutable queueLengths = servers |> Array.map(fun (hostname, port) -> (0, hostname, port))    // assume all servers have empty queues when we start
