@@ -38,7 +38,7 @@ module Strategies =
 
 
     /// Picks the server with the shortest queue length
-    let ShortestQueue (rand : Random) (state : Feature[]) =
+    let ShortestQueue (state : Feature[]) =
         let server, port, _ = state |> Array.minBy (fun (_, _, qlen) -> qlen)
         let index = state |> Array.findIndex (fun (h, p, _) -> h = server && p = port)
         (index, 1.)

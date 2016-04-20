@@ -37,7 +37,7 @@ let main args =
                                             match config.strategy with
                                             | RandomSpray -> Strategies.RandomSpray(rand)
                                             | WeightedRandom -> Strategies.WeightedRandom(rand)
-                                            | ShortestQueue -> Strategies.ShortestQueue(rand)
+                                            | ShortestQueue -> Strategies.ShortestQueue
                                         async { return c.Run( List.toArray config.servers, config.minJobSize, config.maxJobSize, config.refreshPeriod, config.msgsToSend, config.msgsPerSec, routingFunc ) } )
                         |> Async.Parallel
                         |> Async.RunSynchronously
