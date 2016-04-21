@@ -83,6 +83,7 @@ module ArgsParser =
                 | "random" -> {config with strategy = RandomSpray}
                 | "weighted" -> {config with strategy = WeightedRandom}
                 | "shortestQ" -> {config with strategy = ShortestQueue}
+                | "learn" -> {config with strategy = OnlineLearning}
                 | _ -> config
             parseArgs (c, tail)
         | arg :: tail ->  // unrecognized argument

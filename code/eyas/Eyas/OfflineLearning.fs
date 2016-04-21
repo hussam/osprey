@@ -24,7 +24,7 @@ module Offline =
 
     let Learn (data : (int[] * int * int * float * int) []) =
         use vwDynamic =
-            let settings = new VowpalWabbitSettings("--cb_adf --rank_all --interactions sp --interactions rp", featureDiscovery = Nullable(VowpalWabbitFeatureDiscovery.Json) )
+            let settings = new VowpalWabbitSettings("--cb_adf --rank_all", featureDiscovery = Nullable(VowpalWabbitFeatureDiscovery.Json) )
             new VowpalWabbitDynamic(settings)
 
         let examples =
@@ -32,14 +32,10 @@ module Offline =
             |> Array.map (fun (qlens, jobSize, selectedServerIndex, probabilityOfSelection, experiencedDelay) ->
                     let features =
                         qlens |> Array.mapi (fun i l -> {
-                                                        Server = {Id = sprintf "server%d" (i+1)}
                                                         PerformanceStats = {QueueLength = (float32 l) } 
                                                     })
 
-                    let example = {
-                        _multi = features
-                        Request = {JobSize = (float32 jobSize)}
-                        }
+                    let example = { _multi = features }
 
                     let label = new ContextualBanditLabel(uint32 (selectedServerIndex + 1), (float32 experiencedDelay), (float32 probabilityOfSelection))
                     (features, label, selectedServerIndex) )

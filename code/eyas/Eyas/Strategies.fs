@@ -3,11 +3,11 @@
 module Strategies =
     open System
 
-    type Feature = (string * int * int)     // hostname, port, queue length
+    type Feature = (string * int * int)     /// hostname, port, queue length
     let mutable private state_local_copy : Feature[] = [| |]    // could optionally be used as an optimization by different strategies
 
     /// Picks a server equally at random
-    let RandomSpray (rand : Random) (state : Feature[]) =
+    let RandomSpray (rand : Random) (msgNum : int) (state : Feature[]) =
         let index = rand.Next(state.Length)
         (index, 1./(float state.Length))
 
@@ -16,7 +16,7 @@ module Strategies =
     let mutable private weightedRandom_Ceiling = Int32.MinValue
 
     /// Picks a server with probability inversely proportional to queue length
-    let WeightedRandom (rand : Random) (state : Feature[]) =
+    let WeightedRandom (rand : Random) (msgNum : int) (state : Feature[]) =
         let computePCutOffs = fun (queues) ->
             let weights = queues |> Array.mapi(fun index (h, p, q) -> (q + 1, index)) |> Array.sort
             let sumWeights = weights |> Array.sumBy(fun (w, index) -> w)
@@ -38,7 +38,7 @@ module Strategies =
 
 
     /// Picks the server with the shortest queue length
-    let ShortestQueue (state : Feature[]) =
+    let ShortestQueue (msgNum : int) (state : Feature[]) =
         let server, port, _ = state |> Array.minBy (fun (_, _, qlen) -> qlen)
         let index = state |> Array.findIndex (fun (h, p, _) -> h = server && p = port)
         (index, 1.)

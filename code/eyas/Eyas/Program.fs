@@ -1,6 +1,7 @@
 ﻿open Eyas
 open Eyas.ArgsParser
 open Eyas.Configuration
+open Eyas.Learning
 open Eyas.Network
 open FSharp.Charting
 open System
@@ -32,13 +33,21 @@ let main args =
                         [| 1..config.numLocalClients |]
                         |> Array.map(fun i ->
                                         let c = new Client(config.clientPortBase + i, config.randomSeed)
-                                        let routingFunc =
+                                        let noLearning = fun _ _ -> ()
+                                        let (routingFunc, learningFunc) =
                                             let rand = new Random(config.randomSeed)
                                             match config.strategy with
-                                            | RandomSpray -> Strategies.RandomSpray(rand)
-                                            | WeightedRandom -> Strategies.WeightedRandom(rand)
-                                            | ShortestQueue -> Strategies.ShortestQueue
-                                        async { return c.Run( List.toArray config.servers, config.minJobSize, config.maxJobSize, config.refreshPeriod, config.msgsToSend, config.msgsPerSec, routingFunc ) } )
+                                            | RandomSpray ->
+                                                (Strategies.RandomSpray(rand) , noLearning)
+                                            | WeightedRandom ->
+                                                (Strategies.WeightedRandom(rand) , noLearning)
+                                            | ShortestQueue ->
+                                                (Strategies.ShortestQueue , noLearning)
+                                            | OnlineLearning ->
+                                                let epsilon = 0.2
+                                                let (vw, explorer, prg, predictionStore) = OnlineLearning.Init config.randomSeed epsilon config.msgsToSend
+                                                ((OnlineLearning.Predict vw explorer prg predictionStore) , (OnlineLearning.Learn vw predictionStore))
+                                        async { return c.Run( List.toArray config.servers, config.minJobSize, config.maxJobSize, config.refreshPeriod, config.msgsToSend, config.msgsPerSec, routingFunc, learningFunc ) } )
                         |> Async.Parallel
                         |> Async.RunSynchronously
                         |> Array.fold (fun accIn clientResults -> Array.append accIn (clientResults.ToArray())) [||]

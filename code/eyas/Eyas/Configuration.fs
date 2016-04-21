@@ -8,6 +8,7 @@ module Configuration =
         | RandomSpray
         | WeightedRandom
         | ShortestQueue
+        | OnlineLearning
 
 
     /// Configuration for varying server performance (aka the "devil")

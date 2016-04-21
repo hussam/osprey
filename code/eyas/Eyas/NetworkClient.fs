@@ -8,7 +8,7 @@ open System.Threading
 
 type Client(port : int, randomSeed : int) =
 
-    member this.Run(servers : (string * int) [], minJobSize, maxJobSize, monitoringPeriod : int, msgsToSend : int, msgsPerSec : int, routingFunc) =
+    member this.Run(servers : (string * int) [], minJobSize, maxJobSize, monitoringPeriod : int, msgsToSend : int, msgsPerSec : int, routingFunc, learningFunc) =
         let mutable queueLengths = servers |> Array.map(fun (hostname, port) -> (hostname, port, 0))    // assume all servers have empty queues when we start
 
         let featurize = fun (qlens) ->
@@ -44,7 +44,7 @@ type Client(port : int, randomSeed : int) =
             for i in 1..msgsToSend do
                 //if i % 100 = 0 then printfn "--Sent %d messages." i
                 // Pick the server to which the request will be forwarded
-                let targetIndex, probabilityOfSelection = routingFunc(queueLengths)
+                let targetIndex, probabilityOfSelection = routingFunc i queueLengths
                 let serverHostname, serverPort, _ = queueLengths.[targetIndex]
 
                 // Send the message to the server and measure the extra delay
@@ -67,11 +67,11 @@ type Client(port : int, randomSeed : int) =
                 //if results.Count % 100 = 0 then printfn "Received %d messages." results.Count
                 let bytes = socket.Receive(ref anySender)
                 let endTime = timer.ElapsedMilliseconds
-                let jobSize = BitConverter.ToInt32(bytes, 0)
                 let jobId = BitConverter.ToInt32(bytes, 4)
                 
                 let (qlens, jobSize, selectedServerIdx, p, sendTime) = jobsInFlight.[jobId]
                 let delay = int(endTime - sendTime - int64(jobSize))
+                learningFunc jobId delay
                 results.Add((qlens, jobSize, selectedServerIdx, p, delay))
             return results      // return the delays experienced
         }
